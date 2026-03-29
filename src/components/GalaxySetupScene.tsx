@@ -296,7 +296,7 @@ function HexGenreMap({
 export function GalaxySetupScene({ onSelectTopic, onStartDebate, presetTopics }: GalaxySetupProps) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const joystickRef = useRef<HTMLDivElement | null>(null)
-  const [activeGenreId, setActiveGenreId] = useState(GENRES[0].id)
+  const [activeGenreId, setActiveGenreId] = useState<string>(GENRES[0].id)
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
   const [showConfig, setShowConfig] = useState(false)
   const [mode, setMode] = useState<DebateMode>('balanced')
@@ -336,7 +336,6 @@ export function GalaxySetupScene({ onSelectTopic, onStartDebate, presetTopics }:
     const vy = activeGenre.vertex[1]
     const vz = activeGenre.vertex[2]
     const dir = new THREE.Vector3(vx, vy, 0).normalize()
-    const tangent = new THREE.Vector3(-dir.y, dir.x, 0).normalize()
 
     for (let i = 0; i < topics.length; i++) {
       const t = topics[i]
