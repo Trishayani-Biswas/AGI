@@ -1,7 +1,7 @@
 import { type CSSProperties, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X as XIcon } from 'lucide-react'
-import type { ToastMessage } from '../../lib/types'
+import type { ToastMessage } from '../../lib/useToast'
 import './primitives.css'
 
 type ButtonProps = {

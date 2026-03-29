@@ -3,6 +3,275 @@
   perspective-origin: 50% 20%;
 }
 
+.fs3d-root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
+}
+
+.fs3d-app-loading {
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.fs3d-app-loading-spinner {
+  width: 80px;
+  height: 80px;
+  border: 3px solid rgba(139, 92, 246, 0.2);
+  border-top: 3px solid #8b5cf6;
+  border-radius: 50%;
+  animation: fs3d-spin 1s linear infinite;
+  margin-bottom: 24px;
+}
+
+.fs3d-app-loading-title {
+  font-size: 32px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #8b5cf6, #00ffff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0 0 8px;
+}
+
+.fs3d-app-loading-subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+}
+
+.fs3d-app-error-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 100%);
+  color: #fff;
+  font-family: Inter, system-ui, sans-serif;
+  padding: 24px;
+}
+
+.fs3d-app-error-card {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 24px;
+  background: rgba(20, 20, 40, 0.9);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  padding: 32px;
+  text-align: center;
+}
+
+.fs3d-app-error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.fs3d-app-error-title {
+  margin: 0 0 12px;
+  color: #ff453a;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.fs3d-app-error-copy {
+  margin: 0 0 20px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+.fs3d-app-error-stack {
+  margin: 0 0 20px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #ff6b6b;
+  font-size: 12px;
+  text-align: left;
+  overflow: auto;
+  max-height: 150px;
+}
+
+.fs3d-app-error-retry {
+  padding: 12px 32px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@keyframes fs3d-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fs3d-screen {
+  width: 100%;
+  height: 100%;
+}
+
+.fs3d-loading-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #020208;
+  color: rgba(220, 230, 255, 0.8);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.fs3d-toast-stack {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fs3d-toast {
+  background: rgba(10, 10, 20, 0.95);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 12px 20px;
+  color: #fff;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.fs3d-toast-success {
+  border: 1px solid #30d158;
+}
+
+.fs3d-toast-error {
+  border: 1px solid #ff453a;
+}
+
+.fs3d-toast-info {
+  border: 1px solid #8b5cf6;
+}
+
+.fs3d-toast-icon {
+  line-height: 1;
+}
+
+.fs3d-settings-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #8b5cf6;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.fs3d-settings-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(2, 4, 14, 0.62);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.fs3d-settings-modal {
+  width: min(100%, 460px);
+  border-radius: 18px;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  background: linear-gradient(160deg, rgba(10, 14, 36, 0.97), rgba(6, 8, 20, 0.97));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  padding: 22px;
+  color: #fff;
+}
+
+.fs3d-settings-title {
+  margin: 0 0 14px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.fs3d-settings-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.fs3d-settings-input {
+  width: 100%;
+  border: 1px solid rgba(139, 92, 246, 0.42);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(16, 18, 38, 0.8);
+  outline: none;
+}
+
+.fs3d-settings-input:focus {
+  border-color: rgba(139, 92, 246, 0.8);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+}
+
+.fs3d-settings-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.fs3d-settings-cancel,
+.fs3d-settings-save {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fs3d-settings-cancel {
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fs3d-settings-save {
+  color: #fff;
+  border-color: rgba(139, 92, 246, 0.4);
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+}
+
 .fs3d-scene {
   transform-style: preserve-3d;
 }
@@ -70,10 +339,6 @@
   box-shadow: 0 12px 22px rgba(15, 23, 42, 0.12);
 }
 
-.fs3d-debate {
-  transform-style: preserve-3d;
-}
-
 .fs3d-timer-card {
   transform: translateZ(10px);
   box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
@@ -83,10 +348,1662 @@
   transform-style: preserve-3d;
 }
 
+.fs3d-cosmic-root {
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+}
+
+.fs3d-cosmic-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.fs3d-cosmic-result {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.fs3d-cosmic-result-emoji {
+  font-size: 60px;
+  margin-bottom: 10px;
+}
+
+.fs3d-cosmic-result-title {
+  font-size: 56px;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: 0.1em;
+}
+
+.fs3d-cosmic-result-title-victory {
+  color: #30d158;
+  text-shadow: 0 0 60px #30d158;
+}
+
+.fs3d-cosmic-result-title-tie {
+  color: #ffcc00;
+  text-shadow: 0 0 60px #ffcc00;
+}
+
+.fs3d-cosmic-result-title-defeat {
+  color: #ff453a;
+  text-shadow: 0 0 60px #ff453a;
+}
+
+.fs3d-galaxy-mode-actions {
+  margin-top: 14px;
+}
+
+.fs3d-galaxy-mode-btn {
+  border: 1px solid rgba(110, 214, 255, 0.45);
+  background: linear-gradient(120deg, rgba(11, 24, 43, 0.72), rgba(12, 63, 89, 0.62));
+  color: #d9f5ff;
+  border-radius: 9999px;
+  padding: 8px 16px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.fs3d-research-input {
+  width: 100%;
+  min-width: 240px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(126, 179, 255, 0.72);
+  background: rgba(6, 12, 28, 0.92);
+  color: #e8f2ff;
+  font-size: 14px;
+  outline: none;
+}
+
+.fs3d-research-input::placeholder {
+  color: rgba(209, 227, 255, 0.62);
+}
+
+.fs3d-research-output-box {
+  min-width: 88px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dff8ff;
+  background: rgba(4, 20, 28, 0.82);
+  border: 1px solid rgba(124, 235, 255, 0.5);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+
+.fs3d-research-controls {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fs3d-research-select {
+  min-width: 118px;
+  border-radius: 10px;
+  border: 1px solid rgba(126, 179, 255, 0.44);
+  background: rgba(9, 15, 31, 0.9);
+  color: #e8f2ff;
+  padding: 8px 10px;
+}
+
+.fs3d-agent-ring-label {
+  min-width: 88px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #eaf6ff;
+  background: rgba(7, 14, 30, 0.82);
+  border: 1px solid rgba(138, 190, 255, 0.42);
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+.fs3d-research-node-label {
+  min-width: 120px;
+  max-width: 160px;
+  font-size: 9px;
+  line-height: 1.25;
+  color: #edf7ff;
+  background: rgba(8, 15, 30, 0.84);
+  border: 1px solid rgba(141, 183, 244, 0.45);
+  border-radius: 8px;
+  padding: 4px 5px;
+}
+
+.fs3d-research-node-source {
+  margin-top: 3px;
+  color: rgba(183, 210, 255, 0.82);
+  font-size: 9px;
+  text-transform: lowercase;
+}
+
+.fs3d-task-diamond-label {
+  min-width: 96px;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ecf6ff;
+  background: rgba(7, 14, 30, 0.84);
+  border: 1px solid rgba(138, 190, 255, 0.42);
+  border-radius: 8px;
+  padding: 3px 7px;
+}
+
+.fs3d-task-diamond-label.is-disabled {
+  color: #9eb0ca;
+  border-color: rgba(105, 122, 153, 0.45);
+}
+
+.fs3d-preferences-panel {
+  width: 190px;
+  background: rgba(11, 18, 36, 0.9);
+  border: 1px solid rgba(125, 167, 255, 0.45);
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  color: #dce9ff;
+  font-size: 11px;
+}
+
+.fs3d-preferences-panel input,
+.fs3d-preferences-panel select {
+  border-radius: 8px;
+  border: 1px solid rgba(136, 168, 223, 0.4);
+  background: rgba(7, 12, 25, 0.9);
+  color: #e7f1ff;
+  padding: 6px;
+  font-size: 11px;
+}
+
+.fs3d-preferences-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9fc1ff;
+  margin-bottom: 2px;
+}
+
+.fs3d-window-one-panel {
+  width: 320px;
+  gap: 8px;
+}
+
+.fs3d-window-one-controls {
+  margin-top: 2px;
+}
+
+.fs3d-window-three-panel {
+  width: 250px;
+  text-align: center;
+}
+
+.fs3d-primary-output-page {
+  width: 360px;
+  min-height: 290px;
+  display: grid;
+  gap: 7px;
+}
+
+.liquid-glass-report {
+  background: rgba(20, 20, 20, 0.45);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  color: #ffffff;
+  padding: 24px;
+  width: 100%;
+}
+
+.fs3d-primary-output-header {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #2f4a73;
+}
+
+.fs3d-primary-output-text {
+  width: 100%;
+  min-height: 210px;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid rgba(123, 153, 201, 0.45);
+  background: #fff;
+  color: #142030;
+  padding: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.fs3d-primary-save-btn {
+  border-radius: 10px;
+  border: 1px solid rgba(76, 127, 204, 0.5);
+  background: linear-gradient(120deg, rgba(49, 97, 173, 0.96), rgba(74, 130, 201, 0.92));
+  color: #f2f8ff;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.fs3d-decision-center {
+  width: 236px;
+  min-height: 168px;
+  background: rgba(7, 15, 30, 0.9);
+  border: 1px solid rgba(144, 179, 245, 0.45);
+  border-radius: 12px;
+  padding: 9px;
+  color: #ddedff;
+}
+
+.fs3d-decision-center-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #a8c7ff;
+  margin-bottom: 6px;
+}
+
+.fs3d-decision-center-body {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.fs3d-guide-agent-panel {
+  width: 228px;
+  background: rgba(16, 11, 31, 0.9);
+  border: 1px solid rgba(223, 152, 255, 0.5);
+  border-radius: 12px;
+  padding: 9px;
+  color: #f3e4ff;
+  display: grid;
+  gap: 7px;
+}
+
+.fs3d-guide-agent-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ebbeff;
+}
+
+.fs3d-guide-agent-input {
+  width: 100%;
+  min-height: 70px;
+  border-radius: 8px;
+  border: 1px solid rgba(205, 141, 237, 0.45);
+  background: rgba(24, 15, 45, 0.9);
+  color: #f7edff;
+  padding: 8px;
+  font-size: 12px;
+}
+
+.fs3d-guide-agent-btn {
+  border-radius: 10px;
+  border: 1px solid rgba(212, 137, 245, 0.55);
+  background: linear-gradient(120deg, rgba(117, 47, 150, 0.95), rgba(161, 76, 199, 0.9));
+  color: #fef7ff;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.fs3d-diamond-hint {
+  margin-top: 8px;
+  color: rgba(198, 220, 255, 0.8);
+  font-size: 12px;
+}
+
+.dig-root {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(39, 117, 164, 0.28), transparent 42%),
+    radial-gradient(circle at 85% 90%, rgba(43, 112, 72, 0.22), transparent 45%),
+    #050b14;
+  color: #d8e7f9;
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  gap: 12px;
+}
+
+.dig-topbar {
+  border: 1px solid rgba(145, 184, 227, 0.25);
+  background: rgba(8, 15, 26, 0.86);
+  border-radius: 18px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.dig-topbar-btn {
+  border: 1px solid rgba(145, 184, 227, 0.35);
+  background: rgba(16, 35, 60, 0.65);
+  color: #d8e7f9;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.dig-topbar-btn-alt {
+  background: rgba(58, 41, 20, 0.5);
+  border-color: rgba(240, 194, 101, 0.4);
+}
+
+.dig-title-wrap {
+  text-align: center;
+}
+
+.dig-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.dig-subtitle {
+  margin: 4px 0 0;
+  color: rgba(216, 231, 249, 0.76);
+  font-size: 13px;
+}
+
+.dig-layout {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr 300px;
+  gap: 12px;
+}
+
+.dig-panel {
+  border: 1px solid rgba(145, 184, 227, 0.22);
+  border-radius: 16px;
+  background: rgba(8, 15, 26, 0.86);
+  padding: 14px;
+  overflow: auto;
+}
+
+.dig-panel-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  letter-spacing: 0.03em;
+}
+
+.dig-label {
+  display: block;
+  margin: 10px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(216, 231, 249, 0.68);
+}
+
+.dig-input,
+.dig-textarea,
+.dig-select {
+  width: 100%;
+  border: 1px solid rgba(140, 186, 239, 0.25);
+  background: rgba(15, 30, 48, 0.8);
+  color: #e8f1fc;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.dig-textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.dig-primary-btn,
+.dig-danger-btn {
+  width: 100%;
+  border: 1px solid rgba(137, 222, 255, 0.4);
+  background: linear-gradient(120deg, rgba(16, 50, 78, 0.85), rgba(10, 71, 88, 0.65));
+  color: #e8f1fc;
+  border-radius: 10px;
+  padding: 10px;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
+.dig-danger-btn {
+  border-color: rgba(255, 138, 138, 0.42);
+  background: rgba(85, 23, 33, 0.75);
+}
+
+.dig-section-title {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.dig-node-card {
+  border: 1px solid rgba(145, 184, 227, 0.2);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(15, 26, 41, 0.8);
+}
+
+.dig-node-type {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #9ed8ff;
+}
+
+.dig-node-title {
+  margin: 6px 0 4px;
+  font-size: 14px;
+}
+
+.dig-node-notes,
+.dig-empty-copy,
+.dig-error {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(216, 231, 249, 0.72);
+}
+
+.dig-error {
+  margin-top: 10px;
+  color: #ff9ea4;
+}
+
+.dig-canvas-wrap {
+  border: 1px solid rgba(145, 184, 227, 0.2);
+  border-radius: 16px;
+  background: rgba(8, 15, 26, 0.8);
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dig-canvas-hint {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: rgba(216, 231, 249, 0.76);
+  border-bottom: 1px solid rgba(145, 184, 227, 0.2);
+}
+
+.dig-canvas {
+  position: relative;
+  flex: 1;
+  cursor: crosshair;
+}
+
+.dig-edge-layer {
+  width: 100%;
+  height: 100%;
+}
+
+.dig-edge {
+  stroke-width: 2;
+  stroke: rgba(181, 214, 255, 0.58);
+}
+
+.dig-edge-supports {
+  stroke: rgba(61, 212, 168, 0.85);
+}
+
+.dig-edge-contradicts {
+  stroke: rgba(255, 124, 124, 0.86);
+}
+
+.dig-edge-depends_on {
+  stroke: rgba(255, 212, 96, 0.88);
+  stroke-dasharray: 5 3;
+}
+
+.dig-edge-causes {
+  stroke: rgba(157, 185, 255, 0.88);
+}
+
+.dig-edge-mitigates {
+  stroke: rgba(133, 227, 125, 0.9);
+}
+
+.dig-edge-label {
+  fill: rgba(226, 239, 255, 0.74);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dig-node-svg {
+  cursor: pointer;
+}
+
+.dig-node-rect {
+  fill: rgba(34, 56, 82, 0.9);
+  stroke: rgba(154, 199, 255, 0.35);
+  stroke-width: 1.2;
+}
+
+.dig-node-name {
+  fill: #ebf4ff;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.dig-node-svg.is-selected .dig-node-rect {
+  stroke: rgba(117, 239, 255, 0.95);
+  stroke-width: 2;
+}
+
+.dig-node-claim .dig-node-rect {
+  fill: rgba(60, 86, 126, 0.9);
+}
+
+.dig-node-evidence .dig-node-rect {
+  fill: rgba(43, 103, 98, 0.9);
+}
+
+.dig-node-assumption .dig-node-rect {
+  fill: rgba(88, 78, 125, 0.9);
+}
+
+.dig-node-risk .dig-node-rect {
+  fill: rgba(123, 69, 75, 0.9);
+}
+
+.dig-node-option .dig-node-rect {
+  fill: rgba(66, 89, 132, 0.9);
+}
+
+.dig-node-cost .dig-node-rect {
+  fill: rgba(111, 95, 55, 0.9);
+}
+
+.dig-node-stakeholder .dig-node-rect {
+  fill: rgba(66, 102, 112, 0.9);
+}
+
+.dig-node-action .dig-node-rect {
+  fill: rgba(59, 116, 95, 0.9);
+}
+
+.dig-metric-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dig-metric {
+  border: 1px solid rgba(149, 186, 235, 0.28);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(15, 30, 48, 0.75);
+}
+
+.dig-metric-label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(216, 231, 249, 0.74);
+}
+
+.dig-metric-value {
+  font-size: 17px;
+}
+
+.dig-list-title {
+  margin: 14px 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(216, 231, 249, 0.72);
+}
+
+.dig-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(227, 239, 255, 0.86);
+}
+
+@media (max-width: 1200px) {
+  .dig-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(320px, 1fr) auto;
+  }
+
+  .dig-panel-left,
+  .dig-panel-right {
+    max-height: 240px;
+  }
+
+  .dig-topbar {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+}
+
+.fs3d-cosmic-score-card {
+  background: rgba(10, 10, 20, 0.9);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 24px 40px;
+  margin-bottom: 24px;
+  pointer-events: auto;
+}
+
+.fs3d-cosmic-score-card-victory {
+  border: 2px solid rgba(48, 209, 88, 0.25);
+  box-shadow: 0 0 40px rgba(48, 209, 88, 0.16);
+}
+
+.fs3d-cosmic-score-card-tie {
+  border: 2px solid rgba(255, 204, 0, 0.25);
+  box-shadow: 0 0 40px rgba(255, 204, 0, 0.16);
+}
+
+.fs3d-cosmic-score-card-defeat {
+  border: 2px solid rgba(255, 69, 58, 0.25);
+  box-shadow: 0 0 40px rgba(255, 69, 58, 0.16);
+}
+
+.fs3d-cosmic-score-headline {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  justify-content: center;
+}
+
+.fs3d-cosmic-score-side {
+  text-align: center;
+}
+
+.fs3d-cosmic-score-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 4px;
+}
+
+.fs3d-cosmic-score-value-user {
+  font-size: 48px;
+  font-weight: 800;
+  color: #8b5cf6;
+}
+
+.fs3d-cosmic-score-value-ai {
+  font-size: 48px;
+  font-weight: 800;
+  color: #ff6b6b;
+}
+
+.fs3d-cosmic-score-versus {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.fs3d-cosmic-progress-wrap {
+  margin-top: 20px;
+}
+
+.fs3d-cosmic-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.fs3d-cosmic-progress-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.fs3d-cosmic-progress-value {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fs3d-cosmic-progress-value-victory {
+  color: #30d158;
+}
+
+.fs3d-cosmic-progress-value-tie {
+  color: #ffcc00;
+}
+
+.fs3d-cosmic-progress-value-defeat {
+  color: #ff453a;
+}
+
+.fs3d-cosmic-progress-track {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.fs3d-cosmic-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transform-origin: left center;
+}
+
+.fs3d-cosmic-progress-fill-victory {
+  background: linear-gradient(90deg, #8b5cf6, #30d158);
+}
+
+.fs3d-cosmic-progress-fill-tie {
+  background: linear-gradient(90deg, #8b5cf6, #ffcc00);
+}
+
+.fs3d-cosmic-progress-fill-defeat {
+  background: linear-gradient(90deg, #8b5cf6, #ff453a);
+}
+
+.fs3d-cosmic-stats-grid {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  pointer-events: auto;
+}
+
+.fs3d-cosmic-stat-card {
+  background: rgba(10, 10, 20, 0.8);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 16px 24px;
+  text-align: center;
+  min-width: 120px;
+}
+
+.fs3d-cosmic-stat-card-success {
+  border: 1px solid rgba(48, 209, 88, 0.25);
+}
+
+.fs3d-cosmic-stat-card-primary {
+  border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+.fs3d-cosmic-stat-card-accent {
+  border: 1px solid rgba(0, 255, 255, 0.25);
+}
+
+.fs3d-cosmic-stat-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.fs3d-cosmic-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.fs3d-cosmic-stat-value-success {
+  color: #30d158;
+}
+
+.fs3d-cosmic-stat-value-primary {
+  color: #8b5cf6;
+}
+
+.fs3d-cosmic-stat-value-accent {
+  color: #00ffff;
+}
+
+.fs3d-cosmic-summary {
+  max-width: 500px;
+  text-align: center;
+  margin-bottom: 24px;
+  pointer-events: auto;
+}
+
+.fs3d-cosmic-summary-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.fs3d-cosmic-actions {
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.fs3d-cosmic-btn {
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+
+.fs3d-cosmic-btn-export {
+  padding: 14px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-weight: 600;
+}
+
+.fs3d-cosmic-btn-share {
+  padding: 14px 28px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+  font-weight: 600;
+}
+
+.fs3d-cosmic-btn-primary {
+  padding: 14px 36px;
+  border: none;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.4);
+}
+
+.fs3d-solar-root {
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+}
+
+.fs3d-solar-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.fs3d-solar-topic-label {
+  background: rgba(0, 0, 0, 0.8);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  padding: 12px 24px;
+  border-radius: 30px;
+  border: 2px solid #ff6b35;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(255, 107, 53, 0.5);
+}
+
+.fs3d-solar-planet-label {
+  background: rgba(0, 0, 0, 0.9);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  padding: 8px 16px;
+  border-radius: 16px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.fs3d-solar-planet-label-user {
+  border: 2px solid #30d158;
+}
+
+.fs3d-solar-planet-label-ai {
+  border: 2px solid #ff453a;
+}
+
+.fs3d-solar-planet-label-tie {
+  border: 2px solid #ffcc00;
+}
+
+.fs3d-solar-planet-label-active {
+  border: 2px solid #00ffff;
+}
+
+.fs3d-solar-planet-label-idle {
+  border: 2px solid #4a4a6a;
+}
+
+.fs3d-solar-planet-round-title {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.fs3d-solar-planet-round-meta {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.fs3d-solar-planet-active {
+  color: #00ffff;
+  font-size: 11px;
+}
+
+.fs3d-solar-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  pointer-events: auto;
+}
+
+.fs3d-solar-back-btn {
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 10px 16px;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fs3d-solar-timer {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.fs3d-solar-timer-warning {
+  background: linear-gradient(135deg, rgba(255, 69, 58, 0.3), rgba(255, 149, 0, 0.3));
+  border-color: #ff453a;
+}
+
+.fs3d-solar-round-indicator {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.fs3d-solar-time {
+  font-size: 28px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.fs3d-solar-time-normal {
+  color: #00ffff;
+}
+
+.fs3d-solar-time-warning {
+  color: #ff453a;
+}
+
+.fs3d-solar-score {
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fs3d-solar-score-side {
+  text-align: center;
+}
+
+.fs3d-solar-score-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+}
+
+.fs3d-solar-score-value-user,
+.fs3d-solar-score-value-ai {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.fs3d-solar-score-value-user {
+  color: #8b5cf6;
+}
+
+.fs3d-solar-score-value-ai {
+  color: #ff6b6b;
+}
+
+.fs3d-solar-score-wins-user,
+.fs3d-solar-score-wins-ai {
+  font-size: 10px;
+}
+
+.fs3d-solar-score-wins-user {
+  color: #30d158;
+}
+
+.fs3d-solar-score-wins-ai {
+  color: #ff453a;
+}
+
+.fs3d-solar-score-divider {
+  width: 1px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.fs3d-solar-messages-toggle {
+  position: absolute;
+  right: 24px;
+  top: 80px;
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  padding: 10px 16px;
+  color: #8b5cf6;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.fs3d-solar-messages-panel {
+  position: absolute;
+  right: 24px;
+  top: 130px;
+  bottom: 150px;
+  width: 380px;
+  background: rgba(10, 10, 20, 0.95);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.fs3d-solar-messages-head {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fs3d-solar-messages-title {
+  margin: 0;
+  color: #fff;
+  font-size: 16px;
+}
+
+.fs3d-solar-messages-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.fs3d-solar-message-card {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.fs3d-solar-message-card-user {
+  background: rgba(139, 92, 246, 0.15);
+  border-left: 3px solid #8b5cf6;
+}
+
+.fs3d-solar-message-card-ai {
+  background: rgba(255, 107, 107, 0.1);
+  border-left: 3px solid #ff6b6b;
+}
+
+.fs3d-solar-message-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+}
+
+.fs3d-solar-message-content {
+  margin: 0;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.fs3d-solar-typing-row {
+  display: flex;
+  gap: 6px;
+}
+
+.fs3d-solar-typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff6b6b;
+}
+
+.fs3d-solar-input-area {
+  margin-top: auto;
+  padding: 20px 24px;
+  pointer-events: auto;
+}
+
+.fs3d-solar-input-shell {
+  max-width: 700px;
+  margin: 0 auto;
+  background: rgba(10, 10, 20, 0.9);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 16px;
+}
+
+.fs3d-solar-input-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.fs3d-solar-textarea {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 14px 18px;
+  color: #fff;
+  font-size: 15px;
+  resize: none;
+  min-height: 56px;
+  max-height: 120px;
+  outline: none;
+  font-family: inherit;
+}
+
+.fs3d-solar-send-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.fs3d-solar-send-btn-ready {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  cursor: pointer;
+}
+
+.fs3d-solar-input-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.fs3d-solar-input-note {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.fs3d-galaxy-root {
+  width: 100vw;
+  height: 100vh;
+  background: #03030a;
+}
+
+.fs3d-galaxy-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.fs3d-galaxy-header {
+  text-align: center;
+  pointer-events: auto;
+}
+
+.fs3d-galaxy-title {
+  margin: 0;
+  font-size: 54px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, #d3ccff, #87deff 45%, #e4b3ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 66px rgba(141, 117, 255, 0.45);
+}
+
+.fs3d-galaxy-subtitle {
+  color: rgba(222, 231, 255, 0.74);
+  margin-top: 9px;
+  font-size: 14px;
+}
+
+.fs3d-galaxy-active-genre {
+  font-weight: 700;
+}
+
+.fs3d-galaxy-search-wrap {
+  margin: 16px auto 0;
+  pointer-events: auto;
+  display: flex;
+  gap: 8px;
+  background: rgba(8, 10, 24, 0.82);
+  border: 1px solid rgba(149, 167, 255, 0.32);
+  border-radius: 40px;
+  padding: 8px 10px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.35);
+}
+
+.fs3d-galaxy-search-input {
+  width: 340px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #eef3ff;
+  font-size: 14px;
+  padding: 0 8px;
+}
+
+.fs3d-galaxy-search-btn {
+  border: none;
+  border-radius: 18px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #8b5cf6, #3e9fff);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fs3d-galaxy-genre-strip {
+  position: absolute;
+  top: 22px;
+  left: 24px;
+  pointer-events: auto;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 560px;
+}
+
+.fs3d-galaxy-topic-pill {
+  width: 170px;
+  padding: 5px 8px;
+  border-radius: 10px;
+  background: rgba(8, 12, 24, 0.86);
+  color: #eff4ff;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fs3d-galaxy-topic-pill.is-selected {
+  background: rgba(24, 30, 50, 0.95);
+  font-weight: 700;
+}
+
+.fs3d-galaxy-genre-pill {
+  padding: 7px 11px;
+  border-radius: 11px;
+  background: rgba(8, 12, 24, 0.82);
+  color: #eef3ff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fs3d-galaxy-genre-pill.is-active {
+  background: rgba(21, 26, 43, 0.95);
+}
+
+.fs3d-galaxy-genre-technology {
+  border: 1px solid #8b5cf6;
+  color: #bca8ff;
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-technology {
+  border-color: rgba(139, 92, 246, 0.55);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-technology.is-selected,
+.fs3d-galaxy-genre-pill.fs3d-galaxy-genre-technology.is-active {
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.45);
+}
+
+.fs3d-galaxy-genre-society {
+  border: 1px solid #42d7ff;
+  color: #9cefff;
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-society {
+  border-color: rgba(66, 215, 255, 0.55);
+  box-shadow: 0 0 10px rgba(66, 215, 255, 0.2);
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-society.is-selected,
+.fs3d-galaxy-genre-pill.fs3d-galaxy-genre-society.is-active {
+  box-shadow: 0 0 24px rgba(66, 215, 255, 0.45);
+}
+
+.fs3d-galaxy-genre-economy {
+  border: 1px solid #ff89d8;
+  color: #ffc3ec;
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-economy {
+  border-color: rgba(255, 137, 216, 0.55);
+  box-shadow: 0 0 10px rgba(255, 137, 216, 0.2);
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-economy.is-selected,
+.fs3d-galaxy-genre-pill.fs3d-galaxy-genre-economy.is-active {
+  box-shadow: 0 0 24px rgba(255, 137, 216, 0.45);
+}
+
+.fs3d-galaxy-genre-policy {
+  border: 1px solid #6df0b6;
+  color: #bfffe1;
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-policy {
+  border-color: rgba(109, 240, 182, 0.55);
+  box-shadow: 0 0 10px rgba(109, 240, 182, 0.2);
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-policy.is-selected,
+.fs3d-galaxy-genre-pill.fs3d-galaxy-genre-policy.is-active {
+  box-shadow: 0 0 24px rgba(109, 240, 182, 0.45);
+}
+
+.fs3d-galaxy-genre-science {
+  border: 1px solid #ffb86c;
+  color: #ffdcb1;
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-science {
+  border-color: rgba(255, 184, 108, 0.55);
+  box-shadow: 0 0 10px rgba(255, 184, 108, 0.2);
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-science.is-selected,
+.fs3d-galaxy-genre-pill.fs3d-galaxy-genre-science.is-active {
+  box-shadow: 0 0 24px rgba(255, 184, 108, 0.45);
+}
+
+.fs3d-galaxy-genre-ethics {
+  border: 1px solid #df9dff;
+  color: #efcdff;
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-ethics {
+  border-color: rgba(223, 157, 255, 0.55);
+  box-shadow: 0 0 10px rgba(223, 157, 255, 0.2);
+}
+
+.fs3d-galaxy-topic-pill.fs3d-galaxy-genre-ethics.is-selected,
+.fs3d-galaxy-genre-pill.fs3d-galaxy-genre-ethics.is-active {
+  box-shadow: 0 0 24px rgba(223, 157, 255, 0.45);
+}
+
+.fs3d-galaxy-config {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(9, 10, 20, 0.95);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  padding: 32px;
+  border-radius: 24px;
+  border: 1px solid rgba(137, 158, 255, 0.33);
+  min-width: 420px;
+  box-shadow: 0 22px 90px rgba(23, 29, 66, 0.6);
+}
+
+.fs3d-galaxy-config-title {
+  color: #fff;
+  margin: 0 0 8px;
+  font-size: 24px;
+}
+
+.fs3d-galaxy-config-topic {
+  color: rgba(236, 241, 255, 0.67);
+  margin: 0 0 24px;
+  font-size: 14px;
+}
+
+.fs3d-galaxy-config-topic-value {
+  color: #9ed2ff;
+}
+
+.fs3d-galaxy-config-group {
+  margin-bottom: 20px;
+}
+
+.fs3d-galaxy-config-group-timer {
+  margin-bottom: 24px;
+}
+
+.fs3d-galaxy-config-label {
+  color: rgba(229, 235, 255, 0.7);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.fs3d-galaxy-config-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.fs3d-galaxy-config-btn {
+  flex: 1;
+  cursor: pointer;
+}
+
+.fs3d-galaxy-config-btn-mode {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  text-transform: capitalize;
+  font-weight: 600;
+}
+
+.fs3d-galaxy-config-btn-mode.is-selected {
+  border: 2px solid #9bc4ff;
+  background: rgba(140, 191, 255, 0.18);
+  color: #9bc4ff;
+}
+
+.fs3d-galaxy-config-btn-side {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.fs3d-galaxy-config-btn-side.is-selected {
+  border: 2px solid #77deff;
+  background: rgba(70, 205, 255, 0.14);
+  color: #77deff;
+}
+
+.fs3d-galaxy-config-btn-timer {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 600;
+}
+
+.fs3d-galaxy-config-btn-timer.is-selected {
+  border: 2px solid #ffa1d8;
+  background: rgba(255, 162, 221, 0.13);
+  color: #ffa1d8;
+}
+
+.fs3d-galaxy-config-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.fs3d-galaxy-config-cancel {
+  flex: 1;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.fs3d-galaxy-config-primary {
+  flex: 2;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #8b5cf6, #4a8bff, #42d7ff);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 16px;
+  box-shadow: 0 0 38px rgba(94, 142, 255, 0.45);
+}
+
+.fs3d-galaxy-joystick {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 28px;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 1px solid rgba(140, 168, 255, 0.48);
+  background: rgba(8, 12, 24, 0.65);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  z-index: 40;
+  touch-action: none;
+}
+
+.fs3d-galaxy-joystick-knob {
+  position: absolute;
+  left: calc(50% - 14px);
+  top: calc(50% - 14px);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #42d7ff);
+  box-shadow: 0 0 16px rgba(120, 170, 255, 0.5);
+}
+
 @media (max-width: 768px) {
+
   .fs3d-panel:hover,
   .fs3d-history-item:hover,
   .fs3d-history-toggle:hover {
     transform: translateY(-2px);
+  }
+
+  .fs3d-cosmic-result-title {
+    font-size: 44px;
+  }
+
+  .fs3d-cosmic-score-card {
+    padding: 20px;
+    width: 100%;
+    max-width: 430px;
+  }
+
+  .fs3d-cosmic-score-headline {
+    gap: 18px;
+  }
+
+  .fs3d-cosmic-score-value-user,
+  .fs3d-cosmic-score-value-ai {
+    font-size: 40px;
+  }
+
+  .fs3d-cosmic-stats-grid,
+  .fs3d-cosmic-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .fs3d-solar-topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .fs3d-solar-messages-panel {
+    width: min(92vw, 380px);
+    right: 4vw;
+  }
+
+  .fs3d-solar-input-area {
+    padding: 14px 10px;
+  }
+
+  .fs3d-galaxy-title {
+    font-size: 38px;
+  }
+
+  .fs3d-galaxy-search-input {
+    width: min(58vw, 280px);
+  }
+
+  .fs3d-galaxy-config {
+    width: min(92vw, 520px);
+    min-width: 0;
+    padding: 20px;
+  }
+
+  .fs3d-galaxy-config-row,
+  .fs3d-galaxy-config-actions {
+    flex-wrap: wrap;
   }
 }

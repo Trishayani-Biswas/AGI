@@ -1,6 +1,11 @@
 import { useState, useCallback } from 'react'
-import type { ToastMessage } from './types'
-import { generateId } from './storage'
+
+export type ToastMessage = {
+  id: string
+  type: 'success' | 'error' | 'info'
+  message: string
+  duration?: number
+}
 
 interface UseToastReturn {
   toasts: ToastMessage[]
@@ -14,6 +19,8 @@ const DEFAULT_DURATION = 3000
 
 export function useToast(): UseToastReturn {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+
+  const generateId = useCallback(() => `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`, [])
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
@@ -35,7 +42,7 @@ export function useToast(): UseToastReturn {
     if (duration > 0) {
       setTimeout(() => removeToast(id), duration)
     }
-  }, [removeToast])
+  }, [generateId, removeToast])
 
   const clearAll = useCallback(() => {
     setToasts([])

@@ -20,7 +20,7 @@
   --cosmic-pink: #ff6b6b;
   --cosmic-gold: #ffd700;
   --cosmic-orange: #ff6b35;
-  
+
   /* Legacy support */
   --color-background: #000008;
   --color-surface: #0a0a14;
@@ -83,6 +83,7 @@ body {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -100,12 +101,10 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.15),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.15),
+      transparent);
   transform: translateX(-100%);
   transition: none;
 }
@@ -120,6 +119,7 @@ body {
     transform: translate(-50%, -50%) scale(0);
     opacity: 0.4;
   }
+
   100% {
     transform: translate(-50%, -50%) scale(4);
     opacity: 0;
@@ -144,18 +144,17 @@ body {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--color-surface-raised) 25%,
-    var(--color-border) 50%,
-    var(--color-surface-raised) 75%
-  );
+  background: linear-gradient(90deg,
+      var(--color-surface-raised) 25%,
+      var(--color-border) 50%,
+      var(--color-surface-raised) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite;
   border-radius: var(--radius-input);
@@ -163,9 +162,12 @@ body {
 
 /* Pulse animation for timer warning */
 @keyframes pulse-warning {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.6;
   }
@@ -181,6 +183,7 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+
   100% {
     opacity: 0;
     transform: translateY(-20px);
@@ -193,9 +196,13 @@ body {
 
 /* Typing indicator dots */
 @keyframes typing-bounce {
-  0%, 60%, 100% {
+
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
   }
+
   30% {
     transform: translateY(-4px);
   }

@@ -1,59 +1,27 @@
-import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { GalaxySetupScene } from './components/GalaxySetupScene'
-import type { DebateMode, Side, DebateSession, Verdict } from './lib/types'
-import { useDebate } from './lib/useDebate'
 import { useToast } from './lib/useToast'
-import { useTimer } from './lib/useTimer'
 import { useLocalStorage } from './lib/useLocalStorage'
-import { getHistory } from './lib/storage'
-import { checkBackendHealth } from './lib/backendClient'
+import { checkBackendHealth, runAriaResearch, type AriaResearchRun } from './lib/backendClient'
 import { buildPresetTopics } from './lib/topicLibrary'
+import { DecisionGraphScene } from './components/DecisionGraphScene'
+import './FlipSide3d.css'
 
-type Screen = 'galaxy' | 'solar' | 'cosmos'
-
-const SolarDebateScene = lazy(async () => {
-  const module = await import('./components/SolarDebateScene')
-  return { default: module.SolarDebateScene }
-})
-
-const CosmicStatsScene = lazy(async () => {
-  const module = await import('./components/CosmicStatsScene')
-  return { default: module.CosmicStatsScene }
-})
-
-function SceneLoadingFallback() {
-  return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#020208',
-        color: 'rgba(220, 230, 255, 0.8)',
-        fontSize: 14,
-        letterSpacing: '0.06em',
-      }}
-    >
-      Loading scene...
-    </div>
-  )
-}
+type Screen = 'galaxy' | 'decision'
 
 export default function FlipSide3D() {
   const [screen, setScreen] = useState<Screen>('galaxy')
-  const [apiKey, setApiKey] = useLocalStorage<string | null>('flipside_api_key', null)
-  const [backendUrl] = useLocalStorage<string>(
+  const [backendUrl, setBackendUrl] = useLocalStorage<string>(
     'flipside_backend_url',
     (import.meta.env.VITE_BACKEND_URL as string | undefined)?.trim() || 'http://localhost:8787'
   )
-  const [, setHistory] = useLocalStorage<DebateSession[]>('flipside_history', [])
-  const [timerDuration, setTimerDuration] = useState(120)
-  const [totalRounds] = useState(5)
   const { toasts, addToast, removeToast } = useToast()
   const [backendHealthy, setBackendHealthy] = useState(false)
+  const [isRunningResearch, setIsRunningResearch] = useState(false)
+  const [latestResearchRun, setLatestResearchRun] = useState<AriaResearchRun | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsBackendUrl, setSettingsBackendUrl] = useState('')
   const presetTopics = useMemo(() => buildPresetTopics(1200), [])
 
   // Check backend health
@@ -76,121 +44,55 @@ export default function FlipSide3D() {
     return () => { cancelled = true }
   }, [backendUrl, hasBackend])
 
-  const handleDebateEnd = useCallback((verdict: Verdict) => {
-    void verdict
-    setScreen('cosmos')
-  }, [])
-
-  const {
-    session,
-    currentRound,
-    isAiThinking,
-    startDebate,
-    sendMessage,
-    endRound,
-    endDebate,
-    resetDebate,
-  } = useDebate({
-    apiKey,
-    backendUrl: hasBackend && backendHealthy ? backendUrl : null,
-    totalRounds,
-    onDebateEnd: handleDebateEnd,
-  })
-
-  // Timer for debate screen
-  const { timeRemaining, start, pause, reset } = useTimer({
-    initialTime: timerDuration,
-    onComplete: () => {
-      if (!isAiThinking && currentRound <= totalRounds) {
-        if (currentRound >= totalRounds) {
-          endDebate()
-        } else {
-          endRound()
-          reset(timerDuration)
-          start()
-        }
-      }
-    },
-  })
-
-  // Watch for round completion to advance timer
-  useEffect(() => {
-    if (session && session.rounds.length > 0) {
-      const lastRound = session.rounds[session.rounds.length - 1]
-      if (lastRound && lastRound.number === currentRound - 1) {
-        // Round just completed, timer should already be reset
-      }
-      if (session.rounds.length >= totalRounds) {
-        pause()
-        endDebate()
-      }
-    }
-  }, [session, currentRound, totalRounds, endDebate, pause])
-
   const handleSelectTopic = useCallback((topic: string) => {
     void topic
   }, [])
 
-  const handleStartDebate = useCallback((config: { topic: string; mode: DebateMode; side: Side; timerDuration: number }) => {
-    setTimerDuration(config.timerDuration)
-    startDebate(config.topic, config.mode, config.side, config.timerDuration)
-    reset(config.timerDuration)
-    start()
-    setScreen('solar')
-  }, [startDebate, reset, start])
-
-  const handleBack = useCallback(() => {
-    if (window.confirm('Leave debate? Progress will be lost.')) {
-      pause()
-      resetDebate()
-      setScreen('galaxy')
+  const handleStartResearch = useCallback(async (config: { topic: string; depth: 'quick' | 'standard' | 'deep'; maxSources: number }) => {
+    if (!hasBackend || !backendHealthy) {
+      addToast('error', 'Backend is offline. Start server and try again.')
+      return
     }
-  }, [pause, resetDebate])
 
-  const handlePlayAgain = useCallback(() => {
-    setHistory(getHistory())
-    resetDebate()
-    setScreen('galaxy')
-  }, [resetDebate, setHistory])
-
-  const handleExport = useCallback(() => {
-    if (!session) return
-    const lines = [
-      '═══════════════════════════════════════',
-      '        FLIPSIDE DEBATE TRANSCRIPT      ',
-      '═══════════════════════════════════════',
-      '',
-      `Topic: ${session.topic}`,
-      `Mode: ${session.mode}`,
-      `Date: ${new Date(session.createdAt).toLocaleDateString()}`,
-      '',
-      ...session.messages.map((m) => `[${m.role === 'user' ? 'You' : 'FlipSide'}]: ${m.content}`),
-      '',
-      `Final Score: You ${session.totalUserScore} - FlipSide ${session.totalAiScore}`,
-    ]
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `flipside-debate-${session.id}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
-    addToast('success', 'Transcript downloaded!')
-  }, [session, addToast])
-
-  const handleShare = useCallback(async () => {
-    if (!session) return
-    const summary = `🎯 FlipSide Debate\nTopic: "${session.topic}"\nScore: Me ${session.totalUserScore} - FlipSide ${session.totalAiScore}`
+    setIsRunningResearch(true)
     try {
-      await navigator.clipboard.writeText(summary)
-      addToast('success', 'Copied to clipboard!')
-    } catch {
-      addToast('error', 'Clipboard unavailable')
+      const run = await runAriaResearch(backendUrl, {
+        topic: config.topic,
+        depth: config.depth,
+        maxSources: config.maxSources,
+      })
+      setLatestResearchRun(run)
+      setScreen('decision')
+      addToast('success', 'ARIA research completed. Decision graph updated.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Research request failed.'
+      addToast('error', message)
+    } finally {
+      setIsRunningResearch(false)
     }
-  }, [session, addToast])
+  }, [hasBackend, backendHealthy, addToast, backendUrl])
+
+  const handleStartDecisionGraph = useCallback(() => {
+    setScreen('decision')
+  }, [])
+
+  const handleDecisionGraphBack = useCallback(() => {
+    setScreen('galaxy')
+  }, [])
+
+  const handleOpenSettings = useCallback(() => {
+    setSettingsBackendUrl(backendUrl)
+    setIsSettingsOpen(true)
+  }, [backendUrl])
+
+  const handleSaveSettings = useCallback(() => {
+    setBackendUrl(settingsBackendUrl.trim() || 'http://localhost:8787')
+    setIsSettingsOpen(false)
+    addToast('info', 'Backend URL updated')
+  }, [settingsBackendUrl, setBackendUrl, addToast])
 
   return (
-    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#000' }}>
+    <div className="fs3d-root">
       <AnimatePresence mode="wait">
         {screen === 'galaxy' && (
           <motion.div
@@ -199,74 +101,34 @@ export default function FlipSide3D() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
-            style={{ width: '100%', height: '100%' }}
+            className="fs3d-screen"
           >
             <GalaxySetupScene
               onSelectTopic={handleSelectTopic}
-              onStartDebate={handleStartDebate}
+              onStartResearch={handleStartResearch}
+              onStartDecisionGraph={handleStartDecisionGraph}
               presetTopics={presetTopics}
             />
+            {isRunningResearch ? <div className="fs3d-loading-fallback">Running ARIA research...</div> : null}
           </motion.div>
         )}
 
-        {screen === 'solar' && session && (
+        {screen === 'decision' && (
           <motion.div
-            key="solar"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.1 }}
-            transition={{ duration: 0.6 }}
-            style={{ width: '100%', height: '100%' }}
+            key="decision"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.4 }}
+            className="fs3d-screen"
           >
-            <Suspense fallback={<SceneLoadingFallback />}>
-              <SolarDebateScene
-                session={session}
-                currentRound={currentRound}
-                totalRounds={totalRounds}
-                isAiThinking={isAiThinking}
-                timeRemaining={timeRemaining}
-                timerDuration={timerDuration}
-                onSendMessage={sendMessage}
-                onBack={handleBack}
-              />
-            </Suspense>
-          </motion.div>
-        )}
-
-        {screen === 'cosmos' && session && (
-          <motion.div
-            key="cosmos"
-            initial={{ opacity: 0, scale: 1.2 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
-            style={{ width: '100%', height: '100%' }}
-          >
-            <Suspense fallback={<SceneLoadingFallback />}>
-              <CosmicStatsScene
-                session={session}
-                onPlayAgain={handlePlayAgain}
-                onExport={handleExport}
-                onShare={handleShare}
-              />
-            </Suspense>
+            <DecisionGraphScene onBack={handleDecisionGraphBack} researchRun={latestResearchRun} />
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Toast notifications */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 24,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 100,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-        }}
-      >
+      <div className="fs3d-toast-stack">
         <AnimatePresence>
           {toasts.map((toast) => (
             <motion.div
@@ -274,24 +136,10 @@ export default function FlipSide3D() {
               initial={{ opacity: 0, y: 20, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.9 }}
-              style={{
-                background: 'rgba(10, 10, 20, 0.95)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: 16,
-                padding: '12px 20px',
-                border: `1px solid ${
-                  toast.type === 'success' ? '#30d158' : toast.type === 'error' ? '#ff453a' : '#8b5cf6'
-                }`,
-                color: '#fff',
-                fontSize: 14,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                cursor: 'pointer',
-              }}
+              className={`fs3d-toast fs3d-toast-${toast.type}`}
               onClick={() => removeToast(toast.id)}
             >
-              {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}
+              <span className="fs3d-toast-icon">{toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}</span>
               {toast.message}
             </motion.div>
           ))}
@@ -300,34 +148,57 @@ export default function FlipSide3D() {
 
       {/* Settings button (floating) */}
       <button
-        onClick={() => {
-          const newKey = window.prompt('Enter Anthropic API Key (leave empty to clear):', apiKey || '')
-          if (newKey !== null) {
-            setApiKey(newKey.trim() || null)
-            addToast('success', newKey.trim() ? 'API key saved' : 'API key cleared')
-          }
-        }}
-        style={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          width: 48,
-          height: 48,
-          borderRadius: '50%',
-          background: 'rgba(139, 92, 246, 0.2)',
-          border: '1px solid rgba(139, 92, 246, 0.4)',
-          color: '#8b5cf6',
-          cursor: 'pointer',
-          fontSize: 20,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 50,
-        }}
+        onClick={handleOpenSettings}
+        className="fs3d-settings-btn"
         title="Settings"
       >
         ⚙️
       </button>
+
+      <AnimatePresence>
+        {isSettingsOpen ? (
+          <motion.div
+            className="fs3d-settings-modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="fs3d-settings-modal"
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 6, scale: 0.98 }}
+            >
+              <h2 className="fs3d-settings-title">Connection Settings</h2>
+              <label className="fs3d-settings-label" htmlFor="backend-url-input">Backend URL</label>
+              <input
+                id="backend-url-input"
+                className="fs3d-settings-input"
+                type="url"
+                value={settingsBackendUrl}
+                onChange={(event) => setSettingsBackendUrl(event.target.value)}
+                placeholder="http://localhost:8787"
+              />
+              <div className="fs3d-settings-actions">
+                <button
+                  type="button"
+                  className="fs3d-settings-cancel"
+                  onClick={() => setIsSettingsOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="fs3d-settings-save"
+                  onClick={handleSaveSettings}
+                >
+                  Save
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   )
 }

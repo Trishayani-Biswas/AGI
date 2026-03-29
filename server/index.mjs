@@ -3,18 +3,17 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
+import { normalizeResearchRequest, runAriaResearch } from './aria/orchestrator.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const dataDir = join(__dirname, 'data')
-const historyFile = join(dataDir, 'history.json')
-const roomsFile = join(dataDir, 'rooms.json')
-const webhookEventsFile = join(dataDir, 'webhook-events.json')
+const researchRunsFile = join(dataDir, 'research-runs.json')
 
 const PORT = Number(process.env.PORT || 8787)
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*'
 const MAX_BODY_BYTES = 1024 * 1024
-const HISTORY_LIMIT = 2000
+const RESEARCH_RUNS_LIMIT = 500
 
 const baseHeaders = {
   'Access-Control-Allow-Origin': CORS_ORIGIN,
@@ -22,6 +21,8 @@ const baseHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type,X-Api-Key',
   'Content-Type': 'application/json; charset=utf-8',
 }
+
+const nowIso = () => new Date().toISOString()
 
 const ensureDataDir = async () => {
   await mkdir(dataDir, { recursive: true })
@@ -42,8 +43,6 @@ const writeJsonArray = async (path, data) => {
   await ensureDataDir()
   await writeFile(path, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
 }
-
-const nowIso = () => new Date().toISOString()
 
 const send = (res, statusCode, payload) => {
   res.writeHead(statusCode, baseHeaders)
@@ -82,273 +81,6 @@ const readBody = async (req) =>
     req.on('error', reject)
   })
 
-const normalizeHistoryEntry = (entry) => {
-  if (!entry || typeof entry !== 'object') throw new Error('Invalid history payload')
-  if (typeof entry.topic !== 'string' || !entry.topic.trim()) throw new Error('History topic is required')
-
-  return {
-    ...entry,
-    id: typeof entry.id === 'string' && entry.id ? entry.id : randomUUID(),
-    date: typeof entry.date === 'string' && entry.date ? entry.date : nowIso(),
-    tags: Array.isArray(entry.tags) ? entry.tags : [],
-    messages: Array.isArray(entry.messages) ? entry.messages : [],
-    roundScores: Array.isArray(entry.roundScores) ? entry.roundScores : [],
-  }
-}
-
-const createRoom = (payload) => {
-  const roomCode =
-    typeof payload.roomCode === 'string' && payload.roomCode.trim()
-      ? payload.roomCode.trim().toUpperCase()
-      : Math.random().toString(36).slice(2, 8).toUpperCase()
-
-  const topic = typeof payload.topic === 'string' ? payload.topic.trim() : ''
-  const createdBy = typeof payload.createdBy === 'string' && payload.createdBy.trim() ? payload.createdBy.trim() : 'anonymous'
-
-  return {
-    id: randomUUID(),
-    roomCode,
-    topic,
-    createdBy,
-    createdAt: nowIso(),
-    status: 'open',
-  }
-}
-
-const authorizeWebhook = (req) => {
-  const expected = process.env.WEBHOOK_SECRET
-  if (!expected) return true
-  const given = req.headers['x-api-key']
-  return given === expected
-}
-
-const difficultyGuide = {
-  casual: 'friendly, concise, low aggression, explain simply',
-  balanced: 'assertive but fair, challenge assumptions with evidence framing',
-  intense: 'high rigor, precise rebuttals, pressure-test logic and weak premises',
-}
-
-const deterministicHash = (value) => {
-  let hash = 0
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
-  }
-  return hash
-}
-
-const NEWS_FALLBACK_TOPICS = [
-  { title: 'AI regulation and public accountability', source: 'fallback-curated', summary: 'How governments can audit and govern high-impact AI systems.', url: 'https://example.local/fallback/ai-regulation' },
-  { title: 'Climate adaptation funding priorities', source: 'fallback-curated', summary: 'Debate if climate funding should prioritize adaptation over mitigation.', url: 'https://example.local/fallback/climate-funding' },
-  { title: 'Data privacy versus platform personalization', source: 'fallback-curated', summary: 'Should user privacy limits reduce recommendation performance?', url: 'https://example.local/fallback/privacy-personalization' },
-  { title: 'Universal basic income and labor incentives', source: 'fallback-curated', summary: 'Can UBI improve resilience without reducing workforce participation?', url: 'https://example.local/fallback/ubi-labor' },
-  { title: 'Nuclear energy in net-zero strategies', source: 'fallback-curated', summary: 'Should nuclear be central in long-term clean energy plans?', url: 'https://example.local/fallback/nuclear-netzero' },
-  { title: 'Social media age restrictions effectiveness', source: 'fallback-curated', summary: 'Do age-gating rules improve safety or just shift risk elsewhere?', url: 'https://example.local/fallback/social-age-gate' },
-  { title: 'Remote work productivity and culture trade-offs', source: 'fallback-curated', summary: 'Is hybrid work the best default for innovation-heavy teams?', url: 'https://example.local/fallback/remote-hybrid' },
-  { title: 'Open-source AI safety obligations', source: 'fallback-curated', summary: 'Should open-weight model publishers hold post-release safety duties?', url: 'https://example.local/fallback/oss-ai-safety' },
-]
-
-const buildDeterministicFallbackNews = (query, limit) => {
-  const normalized = query.trim().toLowerCase() || 'technology'
-  const start = deterministicHash(normalized) % NEWS_FALLBACK_TOPICS.length
-  const topics = []
-  for (let i = 0; i < limit; i += 1) {
-    topics.push(NEWS_FALLBACK_TOPICS[(start + i) % NEWS_FALLBACK_TOPICS.length])
-  }
-  return topics
-}
-
-const fetchNewsApi = async (query, limit, apiKey) => {
-  const safeQuery = encodeURIComponent(query)
-  const url = `https://newsapi.org/v2/everything?q=${safeQuery}&pageSize=${limit}&sortBy=publishedAt&language=en`
-  const response = await fetch(url, {
-    headers: {
-      'X-Api-Key': apiKey,
-    },
-  })
-
-  if (!response.ok) {
-    const details = await response.text().catch(() => '')
-    throw new Error(`NewsAPI request failed (${response.status}): ${details.slice(0, 180)}`)
-  }
-
-  const payload = await response.json()
-  if (!payload || !Array.isArray(payload.articles)) {
-    throw new Error('NewsAPI returned invalid payload.')
-  }
-
-  return payload.articles
-    .filter((article) => article && typeof article.title === 'string' && article.title.trim())
-    .slice(0, limit)
-    .map((article) => ({
-      title: article.title.trim(),
-      source: typeof article?.source?.name === 'string' ? article.source.name : 'newsapi',
-      summary: typeof article.description === 'string' ? article.description : '',
-      url: typeof article.url === 'string' ? article.url : '',
-    }))
-}
-
-const extractLatestUserArgument = (messages) => {
-  const reversed = [...messages].reverse()
-  const found = reversed.find((m) => m && m.role === 'user' && typeof m.content === 'string')
-  return found ? found.content.trim() : ''
-}
-
-const generateFallbackDebateReply = ({ topic, mode, userSide, roundNumber, totalRounds, messages }) => {
-  const aiSide = userSide === 'for' ? 'against' : 'for'
-  const latest = extractLatestUserArgument(messages)
-  const openers = [
-    `Round ${roundNumber}/${totalRounds}: I’m arguing ${aiSide} this motion.`,
-    `I’ll challenge that from the ${aiSide} side.`,
-    `I disagree from the ${aiSide} position for concrete reasons.`,
-  ]
-  const opener = openers[Math.floor(Math.random() * openers.length)]
-
-  const modeBlocks = {
-    casual: `Your point is thoughtful, but it overlooks trade-offs. If we prioritize only one benefit, we risk side effects that make the outcome worse over time.`,
-    balanced: `Your claim assumes best-case outcomes and underweights implementation risk. Policy and market behavior usually introduce second-order effects that weaken that conclusion.`,
-    intense: `Your argument depends on an unproven premise and a weak causal leap. Without robust evidence and counterfactual control, the conclusion is not defensible at decision-grade quality.`,
-  }
-
-  const evidenceAngles = [
-    `On "${topic}", the strongest counterpoint is incentive design: people respond to rules, not intentions.`,
-    `On "${topic}", feasibility matters: scaling often breaks assumptions that look valid in theory.`,
-    `On "${topic}", distribution effects are critical: who benefits first is usually not who bears the cost.`,
-  ]
-  const angle = evidenceAngles[Math.floor(Math.random() * evidenceAngles.length)]
-
-  const userRef = latest
-    ? `You said: "${latest.slice(0, 140)}${latest.length > 140 ? '…' : ''}". That still doesn’t solve the structural downside.`
-    : `Your previous argument still leaves a structural downside unaddressed.`
-
-  const closer = mode === 'intense'
-    ? 'Prove the premise with concrete evidence and show why the alternative interpretation is weaker.'
-    : 'Address that directly with one specific example and one measurable outcome.'
-
-  return `${opener}\n\n${modeBlocks[mode]}\n\n${angle}\n${userRef}\n\n${closer}`
-}
-
-const TESTING_REPLY_TEMPLATES = {
-  casual: [
-    'I get your angle, but you are assuming ideal behavior at scale. In real systems, incentives drift.',
-    'That sounds persuasive at first, yet it ignores who pays the hidden cost when this policy expands.',
-    'Reasonable point, but your claim is missing guardrails and failure cases.'
-  ],
-  balanced: [
-    'Your case depends on a best-case rollout. Under realistic constraints, outcomes are far less stable.',
-    'You are treating correlation as causation. Show a clearer mechanism before we accept that conclusion.',
-    'Your argument is coherent, but it underestimates second-order effects and uneven impact.'
-  ],
-  intense: [
-    'This position is under-evidenced. You made a strong claim without proving the causal chain.',
-    'Your premise is not decision-grade yet. It needs comparative data and stronger counterfactual framing.',
-    'You are relying on rhetoric over proof. Quantify trade-offs or the conclusion remains weak.'
-  ]
-}
-
-const generateTestingDebateReply = ({ topic, mode, userSide, roundNumber, totalRounds, messages }) => {
-  const aiSide = userSide === 'for' ? 'against' : 'for'
-  const latest = extractLatestUserArgument(messages)
-  const pool = TESTING_REPLY_TEMPLATES[mode] || TESTING_REPLY_TEMPLATES.balanced
-  const selected = pool[Math.floor(Math.random() * pool.length)]
-  const challenge = [
-    `Address feasibility on "${topic}" with one measurable KPI.`,
-    `Show why the ${aiSide} interpretation is weaker with one concrete example.`,
-    `Define the trade-off boundary on "${topic}" and who bears downside risk first.`
-  ][Math.floor(Math.random() * 3)]
-
-  const echo = latest
-    ? `You argued: "${latest.slice(0, 160)}${latest.length > 160 ? '...' : ''}".`
-    : 'Your last point still leaves a critical gap.'
-
-  return `Round ${roundNumber}/${totalRounds} (${aiSide}): ${selected}\n\n${echo}\n${challenge}`
-}
-
-const detectProviderFromKey = (apiKey) => {
-  if (apiKey.startsWith('sk-ant-')) return 'anthropic'
-  if (apiKey.startsWith('sk-')) return 'openai'
-  return 'openai'
-}
-
-const callOpenAIDebate = async (apiKey, payload) => {
-  const { topic, mode, userSide, roundNumber, totalRounds, messages } = payload
-  const aiSide = userSide === 'for' ? 'against' : 'for'
-  const system = `You are FlipSide, an AI debate opponent.\nDebate topic: "${topic}"\nYou must argue: ${aiSide}\nDifficulty: ${mode} (${difficultyGuide[mode] || difficultyGuide.balanced})\nCurrent round: ${roundNumber}/${totalRounds}\nRules: respond with a direct debate rebuttal only, no markdown, no bullet list unless needed for clarity, max 170 words.`
-  const openAiMessages = messages
-    .filter((m) => m && typeof m.content === 'string' && (m.role === 'user' || m.role === 'ai'))
-    .map((m) => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: m.content,
-    }))
-
-  const openAiBaseUrl = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')
-  const response = await fetch(`${openAiBaseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      ...(process.env.OPENAI_SITE_URL ? { 'HTTP-Referer': process.env.OPENAI_SITE_URL } : {}),
-      ...(process.env.OPENAI_APP_NAME ? { 'X-Title': process.env.OPENAI_APP_NAME } : {}),
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-      temperature: 0.8,
-      max_tokens: 400,
-      messages: [{ role: 'system', content: system }, ...openAiMessages],
-    }),
-  })
-
-  if (!response.ok) {
-    const fallbackText = await response.text().catch(() => '')
-    throw new Error(`OpenAI request failed (${response.status}): ${fallbackText.slice(0, 180)}`)
-  }
-
-  const data = await response.json()
-  const text = data?.choices?.[0]?.message?.content
-  if (!text || typeof text !== 'string') {
-    throw new Error('OpenAI returned an empty response.')
-  }
-  return text.trim()
-}
-
-const callAnthropicDebate = async (apiKey, payload) => {
-  const { topic, mode, userSide, roundNumber, totalRounds, messages } = payload
-  const aiSide = userSide === 'for' ? 'against' : 'for'
-  const system = `You are FlipSide, an AI debate opponent.\nDebate topic: "${topic}"\nYou must argue: ${aiSide}\nDifficulty: ${mode} (${difficultyGuide[mode] || difficultyGuide.balanced})\nCurrent round: ${roundNumber}/${totalRounds}\nRules: respond with a direct debate rebuttal only, no markdown, no bullet list unless needed for clarity, max 170 words.`
-  const anthropicMessages = messages
-    .filter((m) => m && typeof m.content === 'string' && (m.role === 'user' || m.role === 'ai'))
-    .map((m) => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: m.content,
-    }))
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 400,
-      system,
-      messages: anthropicMessages,
-    }),
-  })
-
-  if (!response.ok) {
-    const fallbackText = await response.text().catch(() => '')
-    throw new Error(`Anthropic request failed (${response.status}): ${fallbackText.slice(0, 180)}`)
-  }
-
-  const data = await response.json()
-  const text = Array.isArray(data?.content) ? data.content[0]?.text : ''
-  if (!text || typeof text !== 'string') {
-    throw new Error('Anthropic returned an empty response.')
-  }
-  return text.trim()
-}
-
 const server = createServer(async (req, res) => {
   try {
     const method = req.method || 'GET'
@@ -365,172 +97,75 @@ const server = createServer(async (req, res) => {
       send(res, 200, {
         ok: true,
         service: 'flipside2-api',
-        version: 1,
+        mode: 'aria-research',
         time: nowIso(),
       })
       return
     }
 
-    if (method === 'GET' && path === '/v1/history') {
-      const items = await readJsonArray(historyFile)
-      send(res, 200, {
-        ok: true,
-        count: items.length,
-        items,
-      })
-      return
-    }
-
-    if (method === 'POST' && path === '/v1/history') {
+    if (method === 'POST' && path === '/v1/research/run') {
       const body = await readBody(req)
-      const incoming = Array.isArray(body.items) ? body.items : Array.isArray(body.history) ? body.history : [body]
-      const normalized = incoming.map(normalizeHistoryEntry)
-
-      const existing = await readJsonArray(historyFile)
-      const merged = [...normalized, ...existing].slice(0, HISTORY_LIMIT)
-
-      await writeJsonArray(historyFile, merged)
-      send(res, 201, {
-        ok: true,
-        saved: normalized.length,
-        count: merged.length,
-      })
-      return
-    }
-
-    if (method === 'POST' && path === '/v1/multiplayer/rooms') {
-      const body = await readBody(req)
-      const room = createRoom(body)
-      const rooms = await readJsonArray(roomsFile)
-      const updated = [room, ...rooms].slice(0, HISTORY_LIMIT)
-      await writeJsonArray(roomsFile, updated)
-
-      send(res, 201, {
-        ok: true,
-        room,
-      })
-      return
-    }
-
-    if (method === 'POST' && path === '/v1/webhooks/events') {
-      if (!authorizeWebhook(req)) {
-        send(res, 401, { ok: false, error: 'Unauthorized webhook call.' })
-        return
-      }
-
-      const body = await readBody(req)
-      const event = {
-        id: randomUUID(),
-        type: typeof body.type === 'string' ? body.type : 'unknown',
-        payload: body.payload ?? body,
-        receivedAt: nowIso(),
-      }
-
-      const events = await readJsonArray(webhookEventsFile)
-      const updated = [event, ...events].slice(0, HISTORY_LIMIT)
-      await writeJsonArray(webhookEventsFile, updated)
-
-      send(res, 202, {
-        ok: true,
-        eventId: event.id,
-      })
-      return
-    }
-
-    if (method === 'POST' && path === '/v1/debate') {
-      const body = await readBody(req)
-      const payload = {
-        topic: typeof body.topic === 'string' ? body.topic.trim() : '',
-        mode: typeof body.mode === 'string' ? body.mode : 'balanced',
-        userSide: body.userSide === 'against' ? 'against' : 'for',
-        roundNumber: Number.isFinite(Number(body.roundNumber)) ? Number(body.roundNumber) : 1,
-        totalRounds: Number.isFinite(Number(body.totalRounds)) ? Number(body.totalRounds) : 5,
-        messages: Array.isArray(body.messages) ? body.messages : [],
-      }
+      const payload = normalizeResearchRequest(body)
 
       if (!payload.topic) {
         send(res, 400, { ok: false, error: 'Topic is required.' })
         return
       }
 
-      const testingMode = (process.env.TESTING_AI_MODE || '').trim().toLowerCase()
-      if (testingMode === 'mock') {
-        const reply = generateTestingDebateReply(payload)
-        send(res, 200, { ok: true, reply, source: 'testing-mock' })
-        return
+      const output = await runAriaResearch(payload)
+      const run = {
+        id: randomUUID(),
+        createdAt: nowIso(),
+        ...output,
       }
 
-      const apiKeyFromHeader = typeof req.headers['x-api-key'] === 'string' ? req.headers['x-api-key'].trim() : ''
-      const openAiServerApiKey = (process.env.OPENAI_API_KEY || '').trim()
-      const anthropicServerApiKey = (process.env.ANTHROPIC_API_KEY || '').trim()
+      const existing = await readJsonArray(researchRunsFile)
+      const merged = [run, ...existing].slice(0, RESEARCH_RUNS_LIMIT)
+      await writeJsonArray(researchRunsFile, merged)
 
-      let selectedProvider = 'fallback'
-      let apiKey = ''
-
-      if (apiKeyFromHeader) {
-        apiKey = apiKeyFromHeader
-        selectedProvider = detectProviderFromKey(apiKeyFromHeader)
-      } else if (openAiServerApiKey) {
-        apiKey = openAiServerApiKey
-        selectedProvider = 'openai'
-      } else if (anthropicServerApiKey) {
-        apiKey = anthropicServerApiKey
-        selectedProvider = 'anthropic'
-      }
-
-      if (apiKey && selectedProvider !== 'fallback') {
-        try {
-          const reply = selectedProvider === 'openai'
-            ? await callOpenAIDebate(apiKey, payload)
-            : await callAnthropicDebate(apiKey, payload)
-          send(res, 200, { ok: true, reply, source: selectedProvider })
-          return
-        } catch (error) {
-          const cause = error instanceof Error ? error.message : `${selectedProvider} request failed`
-          const reply = generateFallbackDebateReply(payload)
-          send(res, 200, { ok: true, reply, source: 'fallback', warning: cause })
-          return
-        }
-      }
-
-      const reply = generateFallbackDebateReply(payload)
-      send(res, 200, { ok: true, reply, source: 'fallback' })
+      send(res, 200, {
+        ok: true,
+        run,
+      })
       return
     }
 
-    if (method === 'GET' && path === '/v1/news') {
-      const q = (requestUrl.searchParams.get('q') || '').trim()
-      const query = q || 'technology policy'
-      const requestedLimit = Number(requestUrl.searchParams.get('limit') || 6)
-      const limit = Math.min(10, Math.max(3, Number.isFinite(requestedLimit) ? Math.round(requestedLimit) : 6))
-      const newsApiKey = process.env.NEWS_API_KEY || ''
+    if (method === 'GET' && path === '/v1/research') {
+      const requestedLimit = Number(requestUrl.searchParams.get('limit') || 10)
+      const limit = Math.min(50, Math.max(1, Number.isFinite(requestedLimit) ? Math.round(requestedLimit) : 10))
+      const runs = await readJsonArray(researchRunsFile)
 
-      if (!newsApiKey) {
-        const suggestions = buildDeterministicFallbackNews(query, limit)
-        send(res, 200, {
-          ok: true,
-          source: 'fallback',
-          suggestions,
-        })
+      send(res, 200, {
+        ok: true,
+        count: runs.length,
+        items: runs.slice(0, limit).map((run) => ({
+          id: run.id,
+          topic: run.topic,
+          createdAt: run.createdAt,
+          summary: run?.agents?.arbitrator?.summary || '',
+        })),
+      })
+      return
+    }
+
+    if (method === 'GET' && path.startsWith('/v1/research/')) {
+      const runId = decodeURIComponent(path.slice('/v1/research/'.length)).trim()
+      if (!runId) {
+        send(res, 400, { ok: false, error: 'Research run id is required.' })
         return
       }
 
-      try {
-        const suggestions = await fetchNewsApi(query, limit, newsApiKey)
-        send(res, 200, {
-          ok: true,
-          source: 'newsapi',
-          suggestions: suggestions.length > 0 ? suggestions : buildDeterministicFallbackNews(query, limit),
-        })
-      } catch (error) {
-        const cause = error instanceof Error ? error.message : 'Unknown NewsAPI failure'
-        send(res, 200, {
-          ok: true,
-          source: 'fallback',
-          warning: cause,
-          suggestions: buildDeterministicFallbackNews(query, limit),
-        })
+      const runs = await readJsonArray(researchRunsFile)
+      const run = runs.find((item) => item && item.id === runId)
+      if (!run) {
+        send(res, 404, { ok: false, error: 'Research run not found.' })
+        return
       }
+
+      send(res, 200, {
+        ok: true,
+        run,
+      })
       return
     }
 

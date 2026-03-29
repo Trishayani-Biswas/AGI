@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  callDebateBackend,
   checkBackendHealth,
-  getNewsTopicSuggestions,
+  runAriaResearch,
 } from './backendClient'
 
 const mockJsonResponse = (payload: unknown, status = 200): Response =>
@@ -24,66 +23,68 @@ describe('backendClient', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:8787/health', expect.objectContaining({ method: 'GET' }))
   })
 
-  it('sends debate request with API key header and returns reply', async () => {
+  it('runs ARIA research and returns the run payload', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(mockJsonResponse({ ok: true, reply: 'Test reply', source: 'openai' }))
+      .mockResolvedValue(
+        mockJsonResponse({
+          ok: true,
+          run: {
+            id: 'run-1',
+            createdAt: '2025-01-01T00:00:00.000Z',
+            topic: 'Should cities ban private cars?',
+            depth: 'standard',
+            agents: {
+              advocate: { summary: 'Advocate summary' },
+              skeptic: { summary: 'Skeptic summary' },
+              domain: { summary: 'Domain summary' },
+              arbitrator: { summary: 'Arbitrator summary' },
+            },
+            claims: [],
+            contradictions: [],
+            knowledgeGaps: [],
+            evidence: [],
+            metadata: {
+              sourceMode: 'deterministic',
+              generatedAt: '2025-01-01T00:00:00.000Z',
+              maxSources: 6,
+            },
+          },
+        })
+      )
 
-    const reply = await callDebateBackend(
+    const run = await runAriaResearch(
       'http://localhost:8787',
       {
         topic: 'Should cities ban private cars?',
-        mode: 'balanced',
-        userSide: 'for',
-        roundNumber: 1,
-        totalRounds: 5,
-        messages: [],
-      },
-      'test-key'
+        depth: 'standard',
+        maxSources: 6,
+      }
     )
 
-    expect(reply).toBe('Test reply')
+    expect(run.id).toBe('run-1')
+    expect(run.topic).toBe('Should cities ban private cars?')
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:8787/v1/debate',
+      'http://localhost:8787/v1/research/run',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'X-Api-Key': 'test-key',
         }),
       })
     )
   })
 
-  it('maps and filters news topic suggestions from API response', async () => {
+  it('throws when research route responds without run payload', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       mockJsonResponse({
         ok: true,
-        source: 'newsapi',
-        suggestions: [
-          { title: 'AI safety hearings', source: 'Reuters', summary: 'Policy debate', url: 'https://example.com/1' },
-          { title: '', source: 'Invalid', summary: 'Should be filtered', url: 'https://example.com/2' },
-          { title: 'Public transit expansion', source: null, summary: null, url: null },
-        ],
       })
     )
 
-    const topics = await getNewsTopicSuggestions('http://localhost:8787', 'policy', 4)
-
-    expect(topics).toEqual([
-      {
-        title: 'AI safety hearings',
-        source: 'Reuters',
-        summary: 'Policy debate',
-        url: 'https://example.com/1',
-      },
-      {
-        title: 'Public transit expansion',
-        source: 'newsapi',
-        summary: '',
-        url: '',
-      },
-    ])
+    await expect(
+      runAriaResearch('http://localhost:8787', { topic: 'Policy reform' })
+    ).rejects.toThrow('Backend did not return a research run.')
   })
 
   it('throws when API reports failure payload', async () => {
