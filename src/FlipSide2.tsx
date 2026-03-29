@@ -1,13 +1,15 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, type CSSProperties } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Zap, ArrowUp, ChevronLeft, Clock, Trash2, ChevronDown, ThumbsUp, ThumbsDown, Trophy, X as XIcon, Minus } from 'lucide-react'
-import type { DebateMode, Side, DebateSession, Verdict, ToastMessage, Player } from './lib/types'
+import type { DebateMode, Side, DebateSession, Verdict, Player } from './lib/types'
 import { useDebate } from './lib/useDebate'
 import { useToast } from './lib/useToast'
 import { useTimer } from './lib/useTimer'
 import { useLocalStorage } from './lib/useLocalStorage'
 import { getHistory, deleteSession } from './lib/storage'
 import { checkBackendHealth, getCoachTip, getNewsTopicSuggestions, type NewsTopicSuggestion } from './lib/backendClient'
+import { Button, Pill, ToastContainer } from './components/ui/Primitives'
+import './FlipSide3d.css'
 
 type Screen = 'setup' | 'debate' | 'stats'
 
@@ -32,105 +34,6 @@ const colors = {
   success: '#30D0A3',
 }
 
-// ============ UI COMPONENTS ============
-
-function Button({
-  children,
-  variant = 'primary',
-  size = 'md',
-  fullWidth = false,
-  disabled = false,
-  isLoading = false,
-  leftIcon,
-  onClick,
-  style,
-}: {
-  children: React.ReactNode
-  variant?: 'primary' | 'secondary' | 'outline'
-  size?: 'sm' | 'md' | 'lg'
-  fullWidth?: boolean
-  disabled?: boolean
-  isLoading?: boolean
-  leftIcon?: React.ReactNode
-  onClick?: () => void
-  style?: React.CSSProperties
-}) {
-  const baseStyle: React.CSSProperties = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    fontWeight: 600,
-    borderRadius: '10px',
-    cursor: disabled || isLoading ? 'not-allowed' : 'pointer',
-    opacity: disabled || isLoading ? 0.5 : 1,
-    transition: 'all 0.2s',
-    border: 'none',
-    outline: 'none',
-    ...(size === 'sm' && { height: '32px', padding: '0 12px', fontSize: '12px' }),
-    ...(size === 'md' && { height: '40px', padding: '0 16px', fontSize: '14px' }),
-    ...(size === 'lg' && { height: '48px', padding: '0 24px', fontSize: '16px' }),
-    ...(fullWidth && { width: '100%' }),
-    ...(variant === 'primary' && {
-      background: 'linear-gradient(135deg, #0A84FF, #5CA8FF)',
-      color: '#FFFFFF',
-      boxShadow: '0 12px 28px rgba(10,132,255,0.28)',
-    }),
-    ...(variant === 'secondary' && { background: colors.surfaceRaised, color: colors.textPrimary, border: `1px solid ${colors.border}` }),
-    ...(variant === 'outline' && { background: 'transparent', color: colors.goldPrimary, border: `1px solid ${colors.goldPrimary}` }),
-    ...style,
-  }
-
-  return (
-    <motion.button
-      onClick={onClick}
-      disabled={disabled || isLoading}
-      style={baseStyle}
-      whileTap={{ scale: disabled || isLoading ? 1 : 0.97 }}
-      whileHover={{ opacity: disabled ? 0.5 : 0.96, y: disabled ? 0 : -1 }}
-    >
-      {isLoading ? (
-        <span style={{ width: 16, height: 16, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-      ) : (
-        <>
-          {leftIcon}
-          {children}
-        </>
-      )}
-    </motion.button>
-  )
-}
-
-function Pill({
-  children,
-  isSelected = false,
-  onClick,
-  size = 'md',
-}: {
-  children: React.ReactNode
-  isSelected?: boolean
-  onClick?: () => void
-  size?: 'sm' | 'md'
-}) {
-  const style: React.CSSProperties = {
-    padding: size === 'sm' ? '4px 10px' : '8px 16px',
-    fontSize: size === 'sm' ? '12px' : '14px',
-    fontWeight: 500,
-    borderRadius: '9999px',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    border: `1px solid ${isSelected ? colors.goldPrimary : colors.border}`,
-    background: isSelected ? colors.goldPrimary : colors.surfaceRaised,
-    color: isSelected ? colors.background : colors.textSecondary,
-  }
-
-  return (
-    <motion.button onClick={onClick} style={style} whileTap={{ scale: 0.97 }}>
-      {children}
-    </motion.button>
-  )
-}
-
 function AvatarChip({ initial, size = 'md' }: { initial: string; size?: 'sm' | 'md' }) {
   const dim = size === 'sm' ? 24 : 32
   return (
@@ -142,36 +45,6 @@ function AvatarChip({ initial, size = 'md' }: { initial: string; size?: 'sm' | '
     }}>
       {initial}
     </span>
-  )
-}
-
-function ToastContainer({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove: (id: string) => void }) {
-  return (
-    <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 50, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <AnimatePresence mode="popLayout">
-        {toasts.map((toast) => (
-          <motion.div
-            key={toast.id}
-            layout
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            style={{
-              background: 'rgba(255, 255, 255, 0.92)',
-              backdropFilter: 'blur(12px)',
-              borderRadius: 16, padding: '12px 16px',
-              border: `1px solid ${toast.type === 'success' ? colors.success : toast.type === 'error' ? colors.error : colors.goldPrimary}`,
-              display: 'flex', alignItems: 'center', gap: 12, minWidth: 280,
-            }}
-          >
-            <p style={{ flex: 1, margin: 0, fontSize: 14, color: colors.textPrimary }}>{toast.message}</p>
-            <button onClick={() => onRemove(toast.id)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: 4 }}>
-              <XIcon size={16} />
-            </button>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
   )
 }
 
@@ -231,9 +104,9 @@ function SetupScreen({
   }
 
   const modeLabel = connectionMode === 'backend'
-    ? 'Backend + Anthropic (primary)'
+    ? 'Backend + AI provider (OpenAI/Anthropic)'
     : connectionMode === 'direct'
-      ? 'Direct Anthropic API key'
+      ? 'Direct API key mode'
       : 'Fallback mode'
 
   const handleLoadNewsTopics = async () => {
@@ -259,7 +132,7 @@ function SetupScreen({
     }
   }
 
-  const cardStyle: React.CSSProperties = {
+  const cardStyle: CSSProperties = {
     background: 'linear-gradient(160deg, rgba(255,255,255,0.96), rgba(246,249,253,0.96))',
     backdropFilter: 'blur(10px)',
     borderRadius: 24,
@@ -269,8 +142,9 @@ function SetupScreen({
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 24 }}>
+    <div className="fs3d-scene" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 24 }}>
       <motion.div
+        className="fs3d-layout"
         style={{
           width: '100%',
           maxWidth: 1080,
@@ -285,6 +159,7 @@ function SetupScreen({
         transition={pageTransition}
       >
         <div
+          className="fs3d-panel fs3d-hero"
           style={{
             minHeight: 560,
             borderRadius: 28,
@@ -352,6 +227,7 @@ function SetupScreen({
            </div>
 
           <motion.div
+            className="fs3d-panel fs3d-config"
             style={cardStyle}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -471,7 +347,7 @@ function SetupScreen({
               Start Debate
             </Button>
 
-            <div style={{ marginTop: 16, borderRadius: 14, border: `1px solid ${colors.border}`, background: colors.surface, padding: 12 }}>
+            <div className="fs3d-subpanel" style={{ marginTop: 16, borderRadius: 14, border: `1px solid ${colors.border}`, background: colors.surface, padding: 12 }}>
               <p style={{ margin: '0 0 8px', fontSize: 12, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 API Setup & Mode
               </p>
@@ -491,9 +367,11 @@ function SetupScreen({
                 }}
               />
               <input
+                type="password"
                 value={apiKey ?? ''}
                 onChange={(e) => onApiKeyChange(e.target.value.trim() ? e.target.value.trim() : null)}
-                placeholder="Anthropic API key (optional for direct mode)"
+                placeholder="API key (optional for direct mode or backend override)"
+                autoComplete="off"
                 style={{
                   width: '100%',
                   marginBottom: 8,
@@ -505,9 +383,11 @@ function SetupScreen({
                 }}
               />
               <input
+                type="password"
                 value={newsApiKey ?? ''}
                 onChange={(e) => onNewsApiKeyChange(e.target.value.trim() ? e.target.value.trim() : null)}
                 placeholder="NewsAPI key (optional, backend uses NEWS_API_KEY)"
+                autoComplete="off"
                 style={{
                   width: '100%',
                   marginBottom: 8,
@@ -546,6 +426,7 @@ function SetupScreen({
                 </div>
               )}
               <p style={{ margin: '10px 0 0', fontSize: 12, color: colors.textSecondary, lineHeight: 1.5 }}>
+                OpenAI keys: <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{ color: colors.goldPrimary }}>platform.openai.com/api-keys</a><br />
                 Anthropic keys: <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" style={{ color: colors.goldPrimary }}>console.anthropic.com/settings/keys</a><br />
                 NewsAPI keys: <a href="https://newsapi.org/register" target="_blank" rel="noreferrer" style={{ color: colors.goldPrimary }}>newsapi.org/register</a>
               </p>
@@ -555,6 +436,7 @@ function SetupScreen({
           {/* History Panel */}
           <div style={{ marginTop: 16 }}>
             <button
+              className="fs3d-history-toggle"
               onClick={() => setHistoryExpanded(!historyExpanded)}
               style={{
                 width: '100%',
@@ -597,6 +479,7 @@ function SetupScreen({
                     ) : (
                       history.map((s) => (
                         <div
+                          className="fs3d-history-item"
                           key={s.id}
                           style={{
                             display: 'flex',
@@ -791,9 +674,10 @@ function DebateScreen({
   const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`
   const isWarning = timeRemaining <= 15
   const userMessagesCount = session.messages.filter((m) => m.role === 'user').length
+  const sendShortcutLabel = /mac/i.test(navigator.platform) ? 'Cmd+Enter' : 'Ctrl+Enter'
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: colors.background }}>
+    <div className="fs3d-debate" style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: colors.background }}>
       {/* Header */}
       <header style={{ position: 'sticky', top: 0, zIndex: 40, background: 'rgba(244, 247, 251, 0.84)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${colors.border}`, padding: '12px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -834,7 +718,7 @@ function DebateScreen({
 
         {/* Timer & Score */}
         <div style={{ padding: '12px 16px' }}>
-          <div style={{ background: colors.surface, borderRadius: 18, padding: 14, display: 'flex', alignItems: 'center', gap: 16, border: `1px solid ${colors.border}` }}>
+          <div className="fs3d-timer-card" style={{ background: colors.surface, borderRadius: 18, padding: 14, display: 'flex', alignItems: 'center', gap: 16, border: `1px solid ${colors.border}` }}>
             <div style={{ fontSize: 24, fontWeight: 700, color: isWarning ? colors.error : colors.goldPrimary, animation: isWarning ? 'pulse 0.5s infinite' : 'none' }}>
               {timeString}
             </div>
@@ -966,7 +850,7 @@ function DebateScreen({
           <p style={{ margin: '6px 0 0', fontSize: 10, color: inputValue.length > MAX_INPUT_CHARS - 120 ? colors.error : colors.textDisabled, textAlign: 'right' }}>
             {inputValue.length}/{MAX_INPUT_CHARS}
           </p>
-          <p style={{ margin: '8px 0 0', fontSize: 10, color: colors.textDisabled, textAlign: 'center' }}>Press Cmd+Enter to send</p>
+          <p style={{ margin: '8px 0 0', fontSize: 10, color: colors.textDisabled, textAlign: 'center' }}>Press {sendShortcutLabel} to send</p>
         </div>
       </div>
 
@@ -1014,12 +898,17 @@ function StatsScreen({
 
   const handleShare = async () => {
     const summary = `🎯 FlipSide Debate\nTopic: "${session.topic}"\nScore: Me ${session.totalUserScore} - FlipSide ${session.totalAiScore}`
-    await navigator.clipboard.writeText(summary)
-    onToast('Copied to clipboard!')
+    try {
+      await navigator.clipboard.writeText(summary)
+      onToast('Copied to clipboard!')
+    } catch {
+      onToast('Clipboard unavailable. Copy failed.')
+    }
   }
 
   return (
     <motion.div
+      className="fs3d-stats"
       style={{ minHeight: '100vh', padding: '32px 16px' }}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
@@ -1028,6 +917,7 @@ function StatsScreen({
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
         {/* Verdict */}
         <motion.div
+          className="fs3d-panel"
           style={{ background: 'linear-gradient(160deg, rgba(255,255,255,0.96), rgba(246,249,253,0.96))', backdropFilter: 'blur(12px)', borderRadius: 20, padding: 24, textAlign: 'center', marginBottom: 24, border: `1px solid ${colors.border}` }}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1218,7 +1108,7 @@ export default function FlipSide2() {
   }, [resetDebate, setHistory])
 
   return (
-    <div style={{ minHeight: '100vh', background: colors.background, position: 'relative', overflow: 'hidden' }}>
+    <div className="fs3d-app" style={{ minHeight: '100vh', background: colors.background, position: 'relative', overflow: 'hidden' }}>
       <div
         aria-hidden="true"
         style={{

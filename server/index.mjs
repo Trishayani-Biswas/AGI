@@ -227,6 +227,89 @@ const generateFallbackDebateReply = ({ topic, mode, userSide, roundNumber, total
   return `${opener}\n\n${modeBlocks[mode]}\n\n${angle}\n${userRef}\n\n${closer}`
 }
 
+const TESTING_REPLY_TEMPLATES = {
+  casual: [
+    'I get your angle, but you are assuming ideal behavior at scale. In real systems, incentives drift.',
+    'That sounds persuasive at first, yet it ignores who pays the hidden cost when this policy expands.',
+    'Reasonable point, but your claim is missing guardrails and failure cases.'
+  ],
+  balanced: [
+    'Your case depends on a best-case rollout. Under realistic constraints, outcomes are far less stable.',
+    'You are treating correlation as causation. Show a clearer mechanism before we accept that conclusion.',
+    'Your argument is coherent, but it underestimates second-order effects and uneven impact.'
+  ],
+  intense: [
+    'This position is under-evidenced. You made a strong claim without proving the causal chain.',
+    'Your premise is not decision-grade yet. It needs comparative data and stronger counterfactual framing.',
+    'You are relying on rhetoric over proof. Quantify trade-offs or the conclusion remains weak.'
+  ]
+}
+
+const generateTestingDebateReply = ({ topic, mode, userSide, roundNumber, totalRounds, messages }) => {
+  const aiSide = userSide === 'for' ? 'against' : 'for'
+  const latest = extractLatestUserArgument(messages)
+  const pool = TESTING_REPLY_TEMPLATES[mode] || TESTING_REPLY_TEMPLATES.balanced
+  const selected = pool[Math.floor(Math.random() * pool.length)]
+  const challenge = [
+    `Address feasibility on "${topic}" with one measurable KPI.`,
+    `Show why the ${aiSide} interpretation is weaker with one concrete example.`,
+    `Define the trade-off boundary on "${topic}" and who bears downside risk first.`
+  ][Math.floor(Math.random() * 3)]
+
+  const echo = latest
+    ? `You argued: "${latest.slice(0, 160)}${latest.length > 160 ? '...' : ''}".`
+    : 'Your last point still leaves a critical gap.'
+
+  return `Round ${roundNumber}/${totalRounds} (${aiSide}): ${selected}\n\n${echo}\n${challenge}`
+}
+
+const detectProviderFromKey = (apiKey) => {
+  if (apiKey.startsWith('sk-ant-')) return 'anthropic'
+  if (apiKey.startsWith('sk-')) return 'openai'
+  return 'openai'
+}
+
+const callOpenAIDebate = async (apiKey, payload) => {
+  const { topic, mode, userSide, roundNumber, totalRounds, messages } = payload
+  const aiSide = userSide === 'for' ? 'against' : 'for'
+  const system = `You are FlipSide, an AI debate opponent.\nDebate topic: "${topic}"\nYou must argue: ${aiSide}\nDifficulty: ${mode} (${difficultyGuide[mode] || difficultyGuide.balanced})\nCurrent round: ${roundNumber}/${totalRounds}\nRules: respond with a direct debate rebuttal only, no markdown, no bullet list unless needed for clarity, max 170 words.`
+  const openAiMessages = messages
+    .filter((m) => m && typeof m.content === 'string' && (m.role === 'user' || m.role === 'ai'))
+    .map((m) => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content,
+    }))
+
+  const openAiBaseUrl = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')
+  const response = await fetch(`${openAiBaseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      ...(process.env.OPENAI_SITE_URL ? { 'HTTP-Referer': process.env.OPENAI_SITE_URL } : {}),
+      ...(process.env.OPENAI_APP_NAME ? { 'X-Title': process.env.OPENAI_APP_NAME } : {}),
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      temperature: 0.8,
+      max_tokens: 400,
+      messages: [{ role: 'system', content: system }, ...openAiMessages],
+    }),
+  })
+
+  if (!response.ok) {
+    const fallbackText = await response.text().catch(() => '')
+    throw new Error(`OpenAI request failed (${response.status}): ${fallbackText.slice(0, 180)}`)
+  }
+
+  const data = await response.json()
+  const text = data?.choices?.[0]?.message?.content
+  if (!text || typeof text !== 'string') {
+    throw new Error('OpenAI returned an empty response.')
+  }
+  return text.trim()
+}
+
 const callAnthropicDebate = async (apiKey, payload) => {
   const { topic, mode, userSide, roundNumber, totalRounds, messages } = payload
   const aiSide = userSide === 'for' ? 'against' : 'for'
@@ -370,17 +453,40 @@ const server = createServer(async (req, res) => {
         return
       }
 
-      const apiKeyFromHeader = typeof req.headers['x-api-key'] === 'string' ? req.headers['x-api-key'] : ''
-      const serverApiKey = process.env.ANTHROPIC_API_KEY || ''
-      const apiKey = apiKeyFromHeader || serverApiKey
+      const testingMode = (process.env.TESTING_AI_MODE || '').trim().toLowerCase()
+      if (testingMode === 'mock') {
+        const reply = generateTestingDebateReply(payload)
+        send(res, 200, { ok: true, reply, source: 'testing-mock' })
+        return
+      }
 
-      if (apiKey) {
+      const apiKeyFromHeader = typeof req.headers['x-api-key'] === 'string' ? req.headers['x-api-key'].trim() : ''
+      const openAiServerApiKey = (process.env.OPENAI_API_KEY || '').trim()
+      const anthropicServerApiKey = (process.env.ANTHROPIC_API_KEY || '').trim()
+
+      let selectedProvider = 'fallback'
+      let apiKey = ''
+
+      if (apiKeyFromHeader) {
+        apiKey = apiKeyFromHeader
+        selectedProvider = detectProviderFromKey(apiKeyFromHeader)
+      } else if (openAiServerApiKey) {
+        apiKey = openAiServerApiKey
+        selectedProvider = 'openai'
+      } else if (anthropicServerApiKey) {
+        apiKey = anthropicServerApiKey
+        selectedProvider = 'anthropic'
+      }
+
+      if (apiKey && selectedProvider !== 'fallback') {
         try {
-          const reply = await callAnthropicDebate(apiKey, payload)
-          send(res, 200, { ok: true, reply, source: 'anthropic' })
+          const reply = selectedProvider === 'openai'
+            ? await callOpenAIDebate(apiKey, payload)
+            : await callAnthropicDebate(apiKey, payload)
+          send(res, 200, { ok: true, reply, source: selectedProvider })
           return
         } catch (error) {
-          const cause = error instanceof Error ? error.message : 'Anthropic request failed'
+          const cause = error instanceof Error ? error.message : `${selectedProvider} request failed`
           const reply = generateFallbackDebateReply(payload)
           send(res, 200, { ok: true, reply, source: 'fallback', warning: cause })
           return

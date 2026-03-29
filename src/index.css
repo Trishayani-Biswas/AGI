@@ -3,36 +3,44 @@
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
 @import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   FLIPSIDE DESIGN SYSTEM
-   Black Gold Premium Theme
+   FLIPSIDE 3D - COSMIC GALAXY THEME
+   Milky Way Immersive UI
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-/* Base styles */
 :root {
-  /* Colors */
-  --color-background: #0A0804;
-  --color-surface: #12100A;
-  --color-surface-raised: #1C1810;
-  --color-border: #2A2318;
-  --color-gold-primary: #D4A843;
-  --color-gold-muted: #A07C2A;
-  --color-gold-glow: rgba(212, 168, 67, 0.15);
-  --color-text-primary: #F5ECD7;
-  --color-text-secondary: #9E8E6F;
-  --color-text-disabled: #4A3F2F;
-  --color-error: #C0392B;
-  --color-success: #27AE60;
-
-  /* Shadows */
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.6);
+  /* Cosmic Colors */
+  --color-void: #000008;
+  --color-nebula: #1a1a2e;
+  --color-stardust: #16213e;
+  --cosmic-purple: #8b5cf6;
+  --cosmic-cyan: #00ffff;
+  --cosmic-pink: #ff6b6b;
+  --cosmic-gold: #ffd700;
+  --cosmic-orange: #ff6b35;
+  
+  /* Legacy support */
+  --color-background: #000008;
+  --color-surface: #0a0a14;
+  --color-surface-raised: #12121e;
+  --color-border: #2a2a4a;
+  --color-gold-primary: #8b5cf6;
+  --color-gold-muted: #6366f1;
+  --color-gold-glow: rgba(139, 92, 246, 0.15);
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-text-disabled: rgba(255, 255, 255, 0.3);
+  --color-error: #ff453a;
+  --color-success: #30d158;
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.8);
 
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.5;
-  color: var(--color-text-primary);
-  background-color: var(--color-background);
+  color: #ffffff;
+  background-color: #000008;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -46,21 +54,22 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: var(--color-background);
+  background-color: #000008;
+  overflow: hidden;
 }
 
 #root {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  width: 100vw;
+  overflow: hidden;
 }
 
-/* Glass surface utility */
+/* Cosmic glass surface */
 .glass-surface {
-  background: rgba(28, 24, 16, 0.7);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid rgba(212, 168, 67, 0.1);
+  background: rgba(10, 10, 30, 0.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
 /* Focus ring for accessibility */

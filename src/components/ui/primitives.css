@@ -1,0 +1,158 @@
+.fsui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  border: none;
+  outline: none;
+  transform-style: preserve-3d;
+}
+
+.fsui-btn:not(:disabled):hover {
+  transform: translateY(-2px) translateZ(6px);
+  filter: saturate(1.05);
+}
+
+.fsui-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fsui-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.fsui-btn-sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.fsui-btn-md {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.fsui-btn-lg {
+  height: 48px;
+  padding: 0 24px;
+  font-size: 16px;
+}
+
+.fsui-btn-full {
+  width: 100%;
+}
+
+.fsui-btn-primary {
+  background: linear-gradient(135deg, #0a84ff, #5ca8ff);
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(10, 132, 255, 0.28), 0 20px 44px rgba(10, 132, 255, 0.18);
+}
+
+.fsui-btn-secondary {
+  background: #f8fafc;
+  color: #0b172a;
+  border: 1px solid #dce3ed;
+}
+
+.fsui-btn-outline {
+  background: transparent;
+  color: #0a84ff;
+  border: 1px solid #0a84ff;
+}
+
+.fsui-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.fsui-pill {
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  font-weight: 500;
+  transform-style: preserve-3d;
+}
+
+.fsui-pill:hover {
+  transform: translateY(-1px) translateZ(4px);
+}
+
+.fsui-pill-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.fsui-pill-md {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.fsui-pill-selected {
+  border: 1px solid #0a84ff;
+  background: #0a84ff;
+  color: #f4f7fb;
+}
+
+.fsui-pill-unselected {
+  border: 1px solid #dce3ed;
+  background: #f8fafc;
+  color: #475467;
+}
+
+.fsui-toast-wrap {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fsui-toast {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 280px;
+}
+
+.fsui-toast-success {
+  border: 1px solid #30d0a3;
+}
+
+.fsui-toast-error {
+  border: 1px solid #ff5d73;
+}
+
+.fsui-toast-info {
+  border: 1px solid #0a84ff;
+}
+
+.fsui-toast-text {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  color: #0b172a;
+}
+
+.fsui-toast-close {
+  background: none;
+  border: none;
+  color: #475467;
+  cursor: pointer;
+  padding: 4px;
+}

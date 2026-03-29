@@ -3207,7 +3207,7 @@ export function FlipSide() {
 `,
 
   // App.tsx
-  'src/AppNew.tsx': `import { FlipSide } from './FlipSideNew'
+  'src/App.tsx': `import { FlipSide } from './FlipSideNew'
 import './index.css'
 
 function App() {
@@ -3254,8 +3254,7 @@ Next steps:
 3. Open http://localhost:5173
 
 To use the new architecture:
-- Update main.tsx to import from AppNew.tsx
-- Or rename AppNew.tsx to App.tsx
+- Update main.tsx to import from App.tsx
 
 Happy debating! 🎯
 \`)
