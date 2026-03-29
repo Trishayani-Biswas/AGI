@@ -1127,8 +1127,8 @@ body {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     0 14px 34px rgba(0, 0, 0, 0.44);
-  backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
 }
 
 .fs-card:hover,
@@ -1162,8 +1162,8 @@ body {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     0 8px 20px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(14px) saturate(150%);
   -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
   position: relative;
   overflow: hidden;
   transform: translate3d(var(--mag-x, 0px), var(--mag-y, 0px), 0) rotateX(var(--mag-rot-x, 0deg)) rotateY(var(--mag-rot-y, 0deg));

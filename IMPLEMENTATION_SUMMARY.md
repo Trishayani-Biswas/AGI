@@ -1,134 +1,65 @@
-# FlipSide 2.0 - Complete Redesign
+# FlipSide 2.0 - Implementation Summary (Current State)
 
 ## Quick Start
-
-Run these commands in your terminal:
 
 ```bash
 cd "c:\Users\jitpa\OneDrive\Documents\JIT\PROJECTS\Formal\flipside2"
 npm install
-node setup-project.mjs
 npm run dev
 ```
 
-This will:
-1. Install dependencies (Tailwind CSS, Framer Motion, Lucide, Recharts, etc.)
-2. Create the complete modular architecture (~50 components)
-3. Start the dev server at http://localhost:5173
+Optional backend (separate terminal):
 
-## What's New in v2.0
-
-### Design System
-- **Black Gold Premium Theme** - Dark warm base with gold accents
-- **Glass Surface Effects** - Backdrop blur with subtle borders
-- **Framer Motion Animations** - Smooth page transitions, hover effects
-- **Custom Typography** - Inter font with defined scale
-
-### Architecture
-- **Modular Components** - 50+ reusable components
-- **Custom Hooks** - useDebate, useTimer, useToast, useLocalStorage
-- **Type-Safe** - Full TypeScript with strict mode
-- **Path Aliases** - Clean imports with @/
-
-### Features
-- **Setup Screen** - Topic input, mode selection, side picker, timer, multiplayer
-- **Debate Screen** - Real-time chat, timer, scoring, AI coach
-- **Stats Screen** - Verdict, score breakdown, charts, export
-
-## File Structure
-
-```
-src/
-├── types/index.ts          # TypeScript definitions
-├── hooks/
-│   ├── useDebate.ts        # Debate state management
-│   ├── useTimer.ts         # Countdown timer
-│   ├── useToast.ts         # Toast notifications
-│   └── useLocalStorage.ts  # Persistent storage
-├── lib/
-│   ├── backendClient.ts    # API client + Anthropic
-│   ├── storage.ts          # localStorage utils
-│   ├── aiPrompts.ts        # AI system prompts
-│   └── scoring.ts          # Score calculation
-├── components/
-│   ├── ui/                 # Base components
-│   ├── setup/              # Setup screen components
-│   ├── debate/             # Debate screen components
-│   └── stats/              # Stats screen components
-├── screens/
-│   ├── SetupScreen.tsx
-│   ├── DebateScreen.tsx
-│   └── StatsScreen.tsx
-├── FlipSideNew.tsx         # Main orchestrator
-├── AppNew.tsx              # App entry
-└── index.css               # Tailwind + custom styles
+```bash
+npm run backend
 ```
 
-## To Use New Architecture
+Frontend runs on Vite default (`http://localhost:5173`).
+Backend default port is `8787` (configurable via `PORT`).
 
-After running `setup-project.mjs`, update `src/main.tsx`:
+## Current App Entry
+
+`src/main.tsx` already uses:
 
 ```tsx
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './AppNew'  // Changed from './App'
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+import App from './AppNew'
 ```
 
-## API Configuration
+`src/AppNew.tsx` renders `FlipSide2` inside an error boundary.
 
-The app works in two modes:
+## Current Frontend Structure
 
-### Mock Mode (Default)
-- No API key required
-- Uses intelligent mock responses
-- Works completely offline
+The current implementation is centered around:
 
-### Anthropic Claude Mode
-- Set API key in localStorage: `flipside_api_key`
-- Uses Claude claude-sonnet-4-20250514 model
-- Real AI debate responses + coaching tips
+- `src/FlipSide2.tsx` - main UI flow (setup, debate, stats)
+- `src/lib/useDebate.ts` - debate state management
+- `src/lib/useTimer.ts` - timer logic
+- `src/lib/useToast.ts` - toast notifications
+- `src/lib/useLocalStorage.ts` - persistent client state
+- `src/lib/backendClient.ts` - backend + model request helpers
+- `src/lib/storage.ts` - local history/session persistence
+- `src/lib/scoring.ts` - scoring and verdict helpers
+- `src/lib/types.ts` - shared TypeScript types
 
-## Color Palette
+## Backend Summary
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `background` | `#0A0804` | Main background |
-| `surface` | `#12100A` | Card backgrounds |
-| `surface-raised` | `#1C1810` | Elevated elements |
-| `border` | `#2A2318` | Borders |
-| `gold-primary` | `#D4A843` | Primary accent |
-| `gold-muted` | `#A07C2A` | Secondary accent |
-| `text-primary` | `#F5ECD7` | Main text |
-| `text-secondary` | `#9E8E6F` | Muted text |
+`server/index.mjs` exposes:
 
-## Development
+- `GET /health`
+- `GET /v1/history`
+- `POST /v1/history`
+- `POST /v1/multiplayer/rooms`
+- `POST /v1/webhooks/events`
+- `POST /v1/debate`
+
+Data files are persisted under `server/data/` (gitignored).
+
+## Development Commands
 
 ```bash
-npm run dev       # Start dev server
-npm run build     # Production build
-npm run lint      # Run ESLint
-npm run test      # Run tests
-npm run preview   # Preview production build
+npm run dev
+npm run backend
+npm run lint
+npm run build
+npm run test
 ```
-
-## Backend (Optional)
-
-```bash
-npm run backend   # Start backend server on port 3001
-```
-
-Endpoints:
-- `GET /health` - Health check
-- `GET/POST /v1/history` - Sync debate history
-- `POST /v1/multiplayer/rooms` - Create multiplayer room
-
----
-
-**FlipSide 2.0 - Your AI Debate Partner** 🎯

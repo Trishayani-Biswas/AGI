@@ -5,17 +5,44 @@ type RequestMethod = 'GET' | 'POST'
 
 const normalizeBaseUrl = (baseUrl: string): string => baseUrl.trim().replace(/\/+$/, '')
 
-const requestJson = async <T>(baseUrl: string, path: string, method: RequestMethod, body?: unknown): Promise<T> => {
+interface ApiErrorPayload {
+  ok?: boolean
+  error?: unknown
+  message?: unknown
+}
+
+const requestJson = async <T>(
+  baseUrl: string,
+  path: string,
+  method: RequestMethod,
+  body?: unknown,
+  extraHeaders?: Record<string, string>
+): Promise<T> => {
   const url = `${normalizeBaseUrl(baseUrl)}${path}`
   const response = await fetch(url, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
     body: body ? JSON.stringify(body) : undefined,
   })
 
-  const payload = (await response.json()) as { ok?: boolean; error?: unknown }
+  const rawText = await response.text()
+  let payload: ApiErrorPayload = {}
+  if (rawText.trim()) {
+    try {
+      payload = JSON.parse(rawText) as ApiErrorPayload
+    } catch {
+      payload = { error: rawText }
+    }
+  }
+
   if (!response.ok || payload.ok === false) {
-    const message = typeof payload.error === 'string' ? payload.error : `Request failed: ${method} ${path}`
+    const payloadMessage =
+      typeof payload.error === 'string'
+        ? payload.error
+        : typeof payload.message === 'string'
+          ? payload.message
+          : ''
+    const message = payloadMessage || `Request failed: ${method} ${path} (${response.status})`
     throw new Error(message)
   }
 
@@ -48,6 +75,88 @@ export const createBackendRoom = async (baseUrl: string, topic: string, createdB
   const code = payload.room && typeof payload.room.roomCode === 'string' ? payload.room.roomCode : ''
   if (!code) throw new Error('Backend did not return a room code.')
   return code
+}
+
+interface DebateBackendRequest {
+  topic: string
+  mode: DebateMode
+  userSide: 'for' | 'against'
+  roundNumber: number
+  totalRounds: number
+  messages: Message[]
+}
+
+interface DebateBackendResponse {
+  ok: boolean
+  reply: string
+  source?: 'anthropic' | 'fallback'
+}
+
+export interface NewsTopicSuggestion {
+  title: string
+  source: string
+  summary: string
+  url: string
+}
+
+interface NewsResponse {
+  ok: boolean
+  source: 'newsapi' | 'fallback'
+  suggestions?: Array<{
+    title?: unknown
+    source?: unknown
+    summary?: unknown
+    url?: unknown
+  }>
+}
+
+export async function callDebateBackend(
+  baseUrl: string,
+  payload: DebateBackendRequest,
+  apiKey?: string
+): Promise<string> {
+  const headers: Record<string, string> = {}
+  if (apiKey) headers['X-Api-Key'] = apiKey
+
+  const response = await requestJson<DebateBackendResponse>(
+    baseUrl,
+    '/v1/debate',
+    'POST',
+    payload,
+    headers
+  )
+
+  if (!response.reply || typeof response.reply !== 'string') {
+    throw new Error('Backend returned an invalid debate reply.')
+  }
+  return response.reply
+}
+
+export async function getNewsTopicSuggestions(
+  baseUrl: string,
+  query: string,
+  limit = 6
+): Promise<NewsTopicSuggestion[]> {
+  const cleanQuery = encodeURIComponent(query.trim() || 'technology policy')
+  const safeLimit = Math.min(10, Math.max(3, Math.round(limit)))
+  const response = await requestJson<NewsResponse>(
+    baseUrl,
+    `/v1/news?q=${cleanQuery}&limit=${safeLimit}`,
+    'GET'
+  )
+
+  const suggestions = Array.isArray(response.suggestions) ? response.suggestions : []
+  return suggestions
+    .map((item): NewsTopicSuggestion | null => {
+      if (typeof item.title !== 'string' || !item.title.trim()) return null
+      return {
+        title: item.title.trim(),
+        source: typeof item.source === 'string' ? item.source : response.source,
+        summary: typeof item.summary === 'string' ? item.summary : '',
+        url: typeof item.url === 'string' ? item.url : '',
+      }
+    })
+    .filter((item): item is NewsTopicSuggestion => item !== null)
 }
 
 // Anthropic Claude API client

@@ -2,10 +2,11 @@ import { useState, useCallback, useRef } from 'react'
 import type { DebateSession, Message, Round, DebateMode, Side, Verdict } from './types'
 import { generateId, saveSession } from './storage'
 import { calculateRoundScore, determineRoundWinner, calculateFinalVerdict } from './scoring'
-import { callAnthropicAPI, getDebateVerdict, getMockAIResponse } from './backendClient'
+import { callAnthropicAPI, callDebateBackend, getDebateVerdict, getMockAIResponse } from './backendClient'
 
 interface UseDebateOptions {
   apiKey: string | null
+  backendUrl?: string | null
   totalRounds?: number
   onRoundEnd?: (round: Round) => void
   onDebateEnd?: (verdict: Verdict) => void
@@ -22,8 +23,22 @@ interface UseDebateReturn {
   resetDebate: () => void
 }
 
+const MAX_MESSAGE_LENGTH = 1200
+
+const validateOutgoingMessage = (content: string): string => {
+  const trimmed = content.trim()
+  if (!trimmed) {
+    throw new Error('Message cannot be empty.')
+  }
+  if (trimmed.length > MAX_MESSAGE_LENGTH) {
+    throw new Error(`Message is too long. Keep it under ${MAX_MESSAGE_LENGTH} characters.`)
+  }
+  return trimmed
+}
+
 export function useDebate({
   apiKey,
+  backendUrl,
   totalRounds = 5,
   onRoundEnd,
   onDebateEnd,
@@ -32,6 +47,7 @@ export function useDebate({
   const [currentRound, setCurrentRound] = useState(1)
   const [isAiThinking, setIsAiThinking] = useState(false)
   const roundMessagesRef = useRef<Message[]>([])
+  const roundCompletedRef = useRef<Set<number>>(new Set())
 
   const startDebate = useCallback((
     topic: string,
@@ -54,6 +70,7 @@ export function useDebate({
     setSession(newSession)
     setCurrentRound(1)
     roundMessagesRef.current = []
+    roundCompletedRef.current.clear()
   }, [])
 
   const sendMessage = useCallback(async (
@@ -62,13 +79,19 @@ export function useDebate({
     timerDuration: number
   ) => {
     if (!session) return
+    if (isAiThinking) throw new Error('Please wait for FlipSide to respond before sending another message.')
+    const safeContent = validateOutgoingMessage(content)
+    const targetRound = currentRound
+    if (roundCompletedRef.current.has(targetRound)) {
+      throw new Error('This round is already complete. Please continue to the next round.')
+    }
 
     const userMessage: Message = {
       id: generateId(),
       role: 'user',
-      content,
+      content: safeContent,
       timestamp: Date.now(),
-      roundNumber: currentRound,
+      roundNumber: targetRound,
     }
 
     setSession((prev) => prev ? {
@@ -82,21 +105,37 @@ export function useDebate({
     try {
       let aiContent: string
 
-      if (apiKey) {
+      const allMessages = [...session.messages, userMessage]
+      const envBackendUrl = (import.meta.env.VITE_BACKEND_URL as string | undefined)?.trim()
+      const backendBaseUrl = (backendUrl || envBackendUrl || '').trim()
+
+      if (backendBaseUrl) {
+        aiContent = await callDebateBackend(
+          backendBaseUrl,
+          {
+            topic: session.topic,
+              mode: session.mode,
+              userSide: session.side,
+              roundNumber: targetRound,
+              totalRounds,
+              messages: allMessages,
+            },
+          apiKey ?? undefined
+        )
+      } else if (apiKey) {
         aiContent = await callAnthropicAPI(
           apiKey,
-          [...session.messages, userMessage],
+          allMessages,
           session.mode,
           session.topic,
           session.side,
-          currentRound,
+          targetRound,
           totalRounds
         )
       } else {
-        // Simulate thinking delay for mock
-        await new Promise((resolve) => setTimeout(resolve, 1500))
+        await new Promise((resolve) => setTimeout(resolve, 800))
         aiContent = getMockAIResponse(
-          [...session.messages, userMessage],
+          allMessages,
           session.mode,
           session.topic,
           session.side
@@ -108,7 +147,7 @@ export function useDebate({
         role: 'ai',
         content: aiContent,
         timestamp: Date.now(),
-        roundNumber: currentRound,
+        roundNumber: targetRound,
       }
 
       roundMessagesRef.current.push(aiMessage)
@@ -122,17 +161,22 @@ export function useDebate({
         timerDuration
       )
 
+      if (roundCompletedRef.current.has(targetRound)) {
+        return
+      }
+
       setSession((prev) => {
         if (!prev) return null
+        if (roundCompletedRef.current.has(targetRound)) return prev
         
         const updatedMessages = [...prev.messages, aiMessage]
         
         // Check if round should end (after one exchange per round)
-        const roundComplete = roundMessagesRef.current.length >= 2
+        const roundComplete = roundMessagesRef.current.length >= 2 && !prev.rounds.some((round) => round.number === targetRound)
         
         if (roundComplete) {
           const round: Round = {
-            number: currentRound,
+            number: targetRound,
             winner: determineRoundWinner(userScore, aiScore),
             userScore,
             aiScore,
@@ -143,6 +187,7 @@ export function useDebate({
           const newTotalUser = prev.totalUserScore + userScore
           const newTotalAi = prev.totalAiScore + aiScore
 
+          roundCompletedRef.current.add(targetRound)
           onRoundEnd?.(round)
 
           return {
@@ -167,21 +212,47 @@ export function useDebate({
         role: 'ai',
         content: 'I apologize, but I encountered an issue processing your argument. Please try again.',
         timestamp: Date.now(),
-        roundNumber: currentRound,
+        roundNumber: targetRound,
       }
-      setSession((prev) => prev ? {
-        ...prev,
-        messages: [...prev.messages, fallbackMessage],
-      } : null)
+      const { userScore, aiScore } = calculateRoundScore(
+        userMessage,
+        fallbackMessage,
+        session.mode,
+        responseTime,
+        timerDuration
+      )
+      setSession((prev) => {
+        if (!prev) return null
+        if (prev.rounds.some((round) => round.number === targetRound)) return prev
+
+        const round: Round = {
+          number: targetRound,
+          winner: determineRoundWinner(userScore, aiScore),
+          userScore,
+          aiScore,
+          duration: responseTime,
+        }
+        roundCompletedRef.current.add(targetRound)
+        onRoundEnd?.(round)
+
+        return {
+          ...prev,
+          messages: [...prev.messages, fallbackMessage],
+          rounds: [...prev.rounds, round],
+          totalUserScore: prev.totalUserScore + userScore,
+          totalAiScore: prev.totalAiScore + aiScore,
+        }
+      })
     } finally {
       setIsAiThinking(false)
     }
-  }, [session, currentRound, apiKey, totalRounds, onRoundEnd])
+  }, [session, currentRound, apiKey, totalRounds, onRoundEnd, isAiThinking, backendUrl])
 
   const endRound = useCallback(() => {
+    roundCompletedRef.current.add(currentRound)
     setCurrentRound((prev) => prev + 1)
     roundMessagesRef.current = []
-  }, [])
+  }, [currentRound])
 
   const endDebate = useCallback(async () => {
     if (!session) return
@@ -243,6 +314,7 @@ export function useDebate({
     setCurrentRound(1)
     setIsAiThinking(false)
     roundMessagesRef.current = []
+    roundCompletedRef.current.clear()
   }, [])
 
   return {

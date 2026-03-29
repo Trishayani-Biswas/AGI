@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Zap, ArrowUp, ChevronLeft, Clock, Trash2, ChevronDown, ThumbsUp, ThumbsDown, Trophy, X as XIcon, Minus } from 'lucide-react'
-import type { DebateMode, Side, DebateSession, Round, Verdict, ToastMessage, Player } from './lib/types'
+import type { DebateMode, Side, DebateSession, Verdict, ToastMessage, Player } from './lib/types'
 import { useDebate } from './lib/useDebate'
 import { useToast } from './lib/useToast'
 import { useTimer } from './lib/useTimer'
 import { useLocalStorage } from './lib/useLocalStorage'
 import { getHistory, deleteSession } from './lib/storage'
-import { getCoachTip } from './lib/backendClient'
+import { checkBackendHealth, getCoachTip, getNewsTopicSuggestions, type NewsTopicSuggestion } from './lib/backendClient'
 
 type Screen = 'setup' | 'debate' | 'stats'
 
@@ -18,18 +18,18 @@ const pageTransition = {
 
 // Inline styles using CSS variables
 const colors = {
-  background: 'var(--color-background)',
-  surface: 'var(--color-surface)',
-  surfaceRaised: 'var(--color-surface-raised)',
-  border: 'var(--color-border)',
-  goldPrimary: 'var(--color-gold-primary)',
-  goldMuted: 'var(--color-gold-muted)',
-  goldGlow: 'var(--color-gold-glow)',
-  textPrimary: 'var(--color-text-primary)',
-  textSecondary: 'var(--color-text-secondary)',
-  textDisabled: 'var(--color-text-disabled)',
-  error: 'var(--color-error)',
-  success: 'var(--color-success)',
+  background: '#F4F7FB',
+  surface: '#FFFFFF',
+  surfaceRaised: '#F8FAFC',
+  border: '#DCE3ED',
+  goldPrimary: '#0A84FF',
+  goldMuted: '#5CA8FF',
+  goldGlow: 'rgba(10, 132, 255, 0.12)',
+  textPrimary: '#0B172A',
+  textSecondary: '#475467',
+  textDisabled: '#98A2B3',
+  error: '#FF5D73',
+  success: '#30D0A3',
 }
 
 // ============ UI COMPONENTS ============
@@ -71,7 +71,11 @@ function Button({
     ...(size === 'md' && { height: '40px', padding: '0 16px', fontSize: '14px' }),
     ...(size === 'lg' && { height: '48px', padding: '0 24px', fontSize: '16px' }),
     ...(fullWidth && { width: '100%' }),
-    ...(variant === 'primary' && { background: colors.goldPrimary, color: colors.background }),
+    ...(variant === 'primary' && {
+      background: 'linear-gradient(135deg, #0A84FF, #5CA8FF)',
+      color: '#FFFFFF',
+      boxShadow: '0 12px 28px rgba(10,132,255,0.28)',
+    }),
     ...(variant === 'secondary' && { background: colors.surfaceRaised, color: colors.textPrimary, border: `1px solid ${colors.border}` }),
     ...(variant === 'outline' && { background: 'transparent', color: colors.goldPrimary, border: `1px solid ${colors.goldPrimary}` }),
     ...style,
@@ -83,7 +87,7 @@ function Button({
       disabled={disabled || isLoading}
       style={baseStyle}
       whileTap={{ scale: disabled || isLoading ? 1 : 0.97 }}
-      whileHover={{ opacity: disabled ? 0.5 : 0.9 }}
+      whileHover={{ opacity: disabled ? 0.5 : 0.96, y: disabled ? 0 : -1 }}
     >
       {isLoading ? (
         <span style={{ width: 16, height: 16, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
@@ -153,7 +157,7 @@ function ToastContainer({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             style={{
-              background: 'rgba(28, 24, 16, 0.9)',
+              background: 'rgba(255, 255, 255, 0.92)',
               backdropFilter: 'blur(12px)',
               borderRadius: 16, padding: '12px 16px',
               border: `1px solid ${toast.type === 'success' ? colors.success : toast.type === 'error' ? colors.error : colors.goldPrimary}`,
@@ -177,16 +181,33 @@ function SetupScreen({
   onStart,
   history,
   onDeleteHistory,
+  apiKey,
+  onApiKeyChange,
+  backendUrl,
+  onBackendUrlChange,
+  newsApiKey,
+  onNewsApiKeyChange,
+  connectionMode,
 }: {
   onStart: (config: { topic: string; mode: DebateMode; side: Side; timerDuration: number; players: Player[] }) => void
   history: DebateSession[]
   onDeleteHistory: (id: string) => void
+  apiKey: string | null
+  onApiKeyChange: (value: string | null) => void
+  backendUrl: string
+  onBackendUrlChange: (value: string) => void
+  newsApiKey: string | null
+  onNewsApiKeyChange: (value: string | null) => void
+  connectionMode: 'backend' | 'direct' | 'fallback'
 }) {
   const [topic, setTopic] = useState('')
   const [mode, setMode] = useState<DebateMode>('balanced')
   const [side, setSide] = useState<Side>('for')
   const [timerDuration, setTimerDuration] = useState(120)
   const [error, setError] = useState('')
+  const [newsError, setNewsError] = useState('')
+  const [isLoadingNews, setIsLoadingNews] = useState(false)
+  const [newsSuggestions, setNewsSuggestions] = useState<NewsTopicSuggestion[]>([])
   const [historyExpanded, setHistoryExpanded] = useState(false)
 
   const PRESET_TOPICS = ['AI in Governance', 'UBI vs Meritocracy', 'Space > Earth Problems?', 'Social Media is Toxic']
@@ -209,43 +230,136 @@ function SetupScreen({
     onStart({ topic: topic.trim(), mode, side, timerDuration, players: [] })
   }
 
+  const modeLabel = connectionMode === 'backend'
+    ? 'Backend + Anthropic (primary)'
+    : connectionMode === 'direct'
+      ? 'Direct Anthropic API key'
+      : 'Fallback mode'
+
+  const handleLoadNewsTopics = async () => {
+    const targetUrl = backendUrl.trim() || ((import.meta.env.VITE_BACKEND_URL as string | undefined)?.trim() ?? '')
+    if (!targetUrl) {
+      setNewsError('Set a backend URL to fetch topic suggestions.')
+      return
+    }
+    setNewsError('')
+    setIsLoadingNews(true)
+    try {
+      const suggestions = await getNewsTopicSuggestions(targetUrl, topic || 'latest policy', 4)
+      setNewsSuggestions(suggestions)
+      if (suggestions.length === 0) {
+        setNewsError('No topic suggestions returned.')
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load topic suggestions.'
+      setNewsError(message)
+      setNewsSuggestions([])
+    } finally {
+      setIsLoadingNews(false)
+    }
+  }
+
   const cardStyle: React.CSSProperties = {
-    background: 'rgba(28, 24, 16, 0.7)',
-    backdropFilter: 'blur(12px)',
-    borderRadius: 16,
-    border: '1px solid rgba(212, 168, 67, 0.1)',
+    background: 'linear-gradient(160deg, rgba(255,255,255,0.96), rgba(246,249,253,0.96))',
+    backdropFilter: 'blur(10px)',
+    borderRadius: 24,
+    border: `1px solid ${colors.border}`,
     padding: 24,
-    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.6)',
+    boxShadow: '0 28px 60px rgba(2, 5, 10, 0.65), inset 0 1px 0 rgba(255,255,255,0.03)',
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 24 }}>
       <motion.div
-        style={{ width: '100%', maxWidth: 420 }}
+        style={{
+          width: '100%',
+          maxWidth: 1080,
+          margin: '0 auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          gap: 20,
+          alignItems: 'start',
+        }}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={pageTransition}
       >
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <Zap size={24} style={{ color: colors.goldPrimary }} />
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: colors.goldPrimary }}>FlipSide</h1>
-            <span style={{ padding: '2px 6px', borderRadius: 4, background: colors.surfaceRaised, color: colors.goldMuted, fontSize: 10, fontWeight: 500 }}>v2</span>
+        <div
+          style={{
+            minHeight: 560,
+            borderRadius: 28,
+            border: `1px solid ${colors.border}`,
+            background: 'linear-gradient(150deg, rgba(255,255,255,0.98), rgba(247,250,253,0.97))',
+            boxShadow: '0 24px 56px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255,255,255,0.55)',
+            padding: 28,
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              width: 280,
+              height: 280,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle at center, rgba(10,132,255,0.28), transparent 65%)',
+              top: -120,
+              right: -80,
+            }}
+          />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Zap size={22} style={{ color: colors.goldPrimary }} />
+              <span style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.textSecondary }}>Premium Debate Studio</span>
+            </div>
+            <h2 style={{ margin: '0 0 10px', color: colors.textPrimary, fontSize: 34, lineHeight: 1.08, letterSpacing: '-0.03em' }}>
+              Build arguments like a strategist, not a chatbot.
+            </h2>
+            <p style={{ margin: 0, color: colors.textSecondary, maxWidth: 520, lineHeight: 1.6 }}>
+              FlipSide gives you high-pressure rebuttal rounds, adaptive AI difficulty, coaching hints, and clean post-match analytics.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 22 }}>
+              {['Adaptive Opponent', 'Round Scoring', 'Coach Insights', 'Export + Share'].map((label) => (
+                <div key={label} style={{ border: `1px solid ${colors.border}`, borderRadius: 12, background: colors.surfaceRaised, padding: '10px 12px', color: colors.textPrimary, fontSize: 13 }}>
+                  {label}
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 26, borderRadius: 16, border: `1px solid ${colors.border}`, background: colors.surface, padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ color: colors.textSecondary, fontSize: 12 }}>Session Preview</span>
+                <span style={{ color: colors.goldPrimary, fontSize: 12, fontWeight: 700 }}>Live</span>
+              </div>
+              <div style={{ height: 9, borderRadius: 9999, background: '#E9EFF6', overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{ width: '74%', height: '100%', background: 'linear-gradient(90deg,#0A84FF,#5CA8FF)' }} />
+              </div>
+              <p style={{ margin: 0, fontSize: 12, color: colors.textSecondary }}>
+                “Counterpoint quality increased by 28% in intense mode.”
+              </p>
+            </div>
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: colors.textSecondary }}>Your AI Debate Partner</p>
         </div>
 
-        {/* Setup Card */}
-        <motion.div
-          style={cardStyle}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, ...pageTransition }}
-        >
+        <div>
+          <div style={{ textAlign: 'left', marginBottom: 18, paddingLeft: 4 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Zap size={24} style={{ color: colors.goldPrimary }} />
+              <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: colors.textPrimary, letterSpacing: '-0.02em' }}>FlipSide</h1>
+              <span style={{ padding: '2px 8px', borderRadius: 9999, background: colors.goldGlow, color: colors.goldPrimary, fontSize: 10, fontWeight: 700 }}>v2</span>
+            </div>
+             <p style={{ margin: 0, fontSize: 14, color: colors.textSecondary }}>Configure your match and launch.</p>
+           </div>
+
+          <motion.div
+            style={cardStyle}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, ...pageTransition }}
+          >
           {/* Topic Input */}
           <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.textSecondary, marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.textSecondary, marginBottom: 6 }}>
               Debate Topic
             </label>
             <div style={{ position: 'relative' }}>
@@ -264,6 +378,7 @@ function SetupScreen({
                   fontSize: 14,
                   outline: 'none',
                   boxSizing: 'border-box',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
                 }}
               />
               <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: topic.length > 160 ? colors.error : colors.textDisabled }}>
@@ -352,95 +467,178 @@ function SetupScreen({
             </div>
           </div>
 
-          <Button onClick={handleStart} fullWidth size="lg">Start Debate</Button>
-        </motion.div>
+            <Button onClick={handleStart} fullWidth size="lg" style={{ borderRadius: 14, fontWeight: 700, letterSpacing: '0.01em' }}>
+              Start Debate
+            </Button>
 
-        {/* History Panel */}
-        <div style={{ marginTop: 16 }}>
-          <button
-            onClick={() => setHistoryExpanded(!historyExpanded)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: 12,
-              borderRadius: 16,
-              background: colors.surfaceRaised,
-              border: `1px solid ${colors.border}`,
-              cursor: 'pointer',
-              color: colors.textSecondary,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Clock size={16} />
-              <span style={{ fontSize: 14, fontWeight: 500 }}>Past Debates</span>
-              {history.length > 0 && (
-                <span style={{ padding: '2px 6px', borderRadius: 9999, background: colors.goldGlow, color: colors.goldPrimary, fontSize: 12, fontWeight: 500 }}>
-                  {history.length}
-                </span>
-              )}
-            </div>
-            <motion.div animate={{ rotate: historyExpanded ? 180 : 0 }}>
-              <ChevronDown size={16} style={{ color: colors.textDisabled }} />
-            </motion.div>
-          </button>
-
-          <AnimatePresence>
-            {historyExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                style={{ overflow: 'hidden' }}
-              >
-                <div style={{ paddingTop: 8, maxHeight: 256, overflowY: 'auto' }}>
-                  {history.length === 0 ? (
-                    <div style={{ padding: 32, textAlign: 'center', color: colors.textDisabled }}>No debates yet</div>
-                  ) : (
-                    history.map((s) => (
-                      <div
-                        key={s.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12,
-                          padding: 12,
-                          borderRadius: 16,
-                          background: colors.surface,
-                          border: `1px solid ${colors.border}`,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: 0, fontSize: 14, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.topic}</p>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                            <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 10, background: colors.surfaceRaised, color: colors.textSecondary, textTransform: 'capitalize' }}>{s.mode}</span>
-                            <span style={{ fontSize: 12, color: colors.textDisabled }}>{new Date(s.createdAt).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                        {s.verdict && (
-                          <span style={{
-                            fontSize: 12, fontWeight: 600, padding: '4px 8px', borderRadius: 4,
-                            background: s.verdict.winner === 'user' ? 'rgba(39, 174, 96, 0.2)' : s.verdict.winner === 'ai' ? 'rgba(192, 57, 43, 0.2)' : colors.goldGlow,
-                            color: s.verdict.winner === 'user' ? colors.success : s.verdict.winner === 'ai' ? colors.error : colors.goldPrimary,
-                          }}>
-                            {s.verdict.winner === 'user' ? 'Won' : s.verdict.winner === 'ai' ? 'Lost' : 'Tie'}
-                          </span>
-                        )}
-                        <button
-                          onClick={() => onDeleteHistory(s.id)}
-                          style={{ padding: 6, background: 'none', border: 'none', color: colors.textDisabled, cursor: 'pointer' }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))
-                  )}
+            <div style={{ marginTop: 16, borderRadius: 14, border: `1px solid ${colors.border}`, background: colors.surface, padding: 12 }}>
+              <p style={{ margin: '0 0 8px', fontSize: 12, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                API Setup & Mode
+              </p>
+              <p style={{ margin: '0 0 10px', fontSize: 13, color: colors.textPrimary, fontWeight: 600 }}>{modeLabel}</p>
+              <input
+                value={backendUrl}
+                onChange={(e) => onBackendUrlChange(e.target.value)}
+                placeholder="Backend URL (e.g. http://localhost:8787)"
+                style={{
+                  width: '100%',
+                  marginBottom: 8,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: `1px solid ${colors.border}`,
+                  background: colors.surfaceRaised,
+                  color: colors.textPrimary,
+                }}
+              />
+              <input
+                value={apiKey ?? ''}
+                onChange={(e) => onApiKeyChange(e.target.value.trim() ? e.target.value.trim() : null)}
+                placeholder="Anthropic API key (optional for direct mode)"
+                style={{
+                  width: '100%',
+                  marginBottom: 8,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: `1px solid ${colors.border}`,
+                  background: colors.surfaceRaised,
+                  color: colors.textPrimary,
+                }}
+              />
+              <input
+                value={newsApiKey ?? ''}
+                onChange={(e) => onNewsApiKeyChange(e.target.value.trim() ? e.target.value.trim() : null)}
+                placeholder="NewsAPI key (optional, backend uses NEWS_API_KEY)"
+                style={{
+                  width: '100%',
+                  marginBottom: 8,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: `1px solid ${colors.border}`,
+                  background: colors.surfaceRaised,
+                  color: colors.textPrimary,
+                }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="secondary" size="sm" onClick={handleLoadNewsTopics} isLoading={isLoadingNews}>
+                  Suggest Topics
+                </Button>
+              </div>
+              {!!newsError && <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.error }}>{newsError}</p>}
+              {newsSuggestions.length > 0 && (
+                <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {newsSuggestions.map((item) => (
+                    <button
+                      key={`${item.source}-${item.title}`}
+                      onClick={() => { setTopic(item.title.slice(0, 200)); setError('') }}
+                      style={{
+                        borderRadius: 9999,
+                        border: `1px solid ${colors.border}`,
+                        background: colors.surfaceRaised,
+                        color: colors.textSecondary,
+                        padding: '6px 10px',
+                        fontSize: 12,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {item.title}
+                    </button>
+                  ))}
                 </div>
+              )}
+              <p style={{ margin: '10px 0 0', fontSize: 12, color: colors.textSecondary, lineHeight: 1.5 }}>
+                Anthropic keys: <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" style={{ color: colors.goldPrimary }}>console.anthropic.com/settings/keys</a><br />
+                NewsAPI keys: <a href="https://newsapi.org/register" target="_blank" rel="noreferrer" style={{ color: colors.goldPrimary }}>newsapi.org/register</a>
+              </p>
+            </div>
+          </motion.div>
+
+          {/* History Panel */}
+          <div style={{ marginTop: 16 }}>
+            <button
+              onClick={() => setHistoryExpanded(!historyExpanded)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: 12,
+                borderRadius: 16,
+                background: colors.surfaceRaised,
+                border: `1px solid ${colors.border}`,
+                cursor: 'pointer',
+                color: colors.textSecondary,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Clock size={16} />
+                <span style={{ fontSize: 14, fontWeight: 500 }}>Past Debates</span>
+                {history.length > 0 && (
+                  <span style={{ padding: '2px 6px', borderRadius: 9999, background: colors.goldGlow, color: colors.goldPrimary, fontSize: 12, fontWeight: 500 }}>
+                    {history.length}
+                  </span>
+                )}
+              </div>
+              <motion.div animate={{ rotate: historyExpanded ? 180 : 0 }}>
+                <ChevronDown size={16} style={{ color: colors.textDisabled }} />
               </motion.div>
-            )}
-          </AnimatePresence>
+            </button>
+
+            <AnimatePresence>
+              {historyExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div style={{ paddingTop: 8, maxHeight: 256, overflowY: 'auto' }}>
+                    {history.length === 0 ? (
+                      <div style={{ padding: 32, textAlign: 'center', color: colors.textDisabled }}>No debates yet</div>
+                    ) : (
+                      history.map((s) => (
+                        <div
+                          key={s.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: 12,
+                            borderRadius: 16,
+                            background: colors.surface,
+                            border: `1px solid ${colors.border}`,
+                            marginBottom: 8,
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: 14, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.topic}</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                              <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 10, background: colors.surfaceRaised, color: colors.textSecondary, textTransform: 'capitalize' }}>{s.mode}</span>
+                              <span style={{ fontSize: 12, color: colors.textDisabled }}>{new Date(s.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          {s.verdict && (
+                            <span style={{
+                              fontSize: 12, fontWeight: 600, padding: '4px 8px', borderRadius: 4,
+                              background: s.verdict.winner === 'user' ? 'rgba(39, 174, 96, 0.2)' : s.verdict.winner === 'ai' ? 'rgba(192, 57, 43, 0.2)' : colors.goldGlow,
+                              color: s.verdict.winner === 'user' ? colors.success : s.verdict.winner === 'ai' ? colors.error : colors.goldPrimary,
+                            }}>
+                              {s.verdict.winner === 'user' ? 'Won' : s.verdict.winner === 'ai' ? 'Lost' : 'Tie'}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => onDeleteHistory(s.id)}
+                            style={{ padding: 6, background: 'none', border: 'none', color: colors.textDisabled, cursor: 'pointer' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </motion.div>
     </div>
@@ -472,18 +670,22 @@ function DebateScreen({
   onEndDebate: () => void
   onBack: () => void
 }) {
-  const [showRoundEnd, setShowRoundEnd] = useState(false)
-  const [lastRound, setLastRound] = useState<Round | null>(null)
   const [coachTip, setCoachTip] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
-  const [roundStartTime] = useState(() => Date.now())
+  const roundStartTimeRef = useRef(Date.now())
   const prevRoundsLengthRef = useRef(session.rounds.length)
+  const isTransitioningRef = useRef(false)
+  const isSendingRef = useRef(false)
+  const lastTransitionRoundRef = useRef<number>(0)
+  const MAX_INPUT_CHARS = 1200
 
   const { timeRemaining, isRunning, start, pause, reset } = useTimer({
     initialTime: timerDuration,
     onComplete: () => {
-      if (currentRound <= totalRounds) {
-        handleTimeUp()
+      if (isAiThinking) return
+      if (!isTransitioningRef.current && currentRound <= totalRounds) {
+        void handleTimeUp()
       }
     },
   })
@@ -496,47 +698,82 @@ function DebateScreen({
   // Watch for round completion
   useEffect(() => {
     if (session.rounds.length > prevRoundsLengthRef.current) {
-      const newRound = session.rounds[session.rounds.length - 1]
-      if (newRound) {
-        setLastRound(newRound)
-        setShowRoundEnd(true)
-        pause()
+      const completedRound = session.rounds[session.rounds.length - 1]?.number ?? 0
+      if (completedRound > 0 && completedRound === lastTransitionRoundRef.current) {
+        prevRoundsLengthRef.current = session.rounds.length
+        return
       }
+      if (isTransitioningRef.current) return
+      isTransitioningRef.current = true
+      if (completedRound > 0) {
+        lastTransitionRoundRef.current = completedRound
+      }
+      if (session.rounds.length >= totalRounds || currentRound >= totalRounds) {
+        pause()
+        onEndDebate()
+      } else {
+        pause()
+        onEndRound()
+        reset(timerDuration)
+        roundStartTimeRef.current = Date.now()
+        start()
+      }
+      queueMicrotask(() => {
+        isTransitioningRef.current = false
+      })
     }
     prevRoundsLengthRef.current = session.rounds.length
-  }, [session.rounds, pause])
+  }, [session.rounds, currentRound, totalRounds, onEndDebate, onEndRound, pause, reset, start, timerDuration])
 
-  const handleTimeUp = () => {
-    setLastRound({
-      number: currentRound,
-      winner: 'ai',
-      userScore: 0,
-      aiScore: 1,
-      duration: timerDuration,
-    })
-    setShowRoundEnd(true)
-    pause()
-  }
-
-  const handleContinue = () => {
-    setShowRoundEnd(false)
+  const handleTimeUp = async () => {
+    if (isAiThinking) return
+    if (isTransitioningRef.current) return
+    if (lastTransitionRoundRef.current === currentRound) return
+    isTransitioningRef.current = true
+    lastTransitionRoundRef.current = currentRound
     if (currentRound >= totalRounds) {
+      pause()
       onEndDebate()
     } else {
+      pause()
       onEndRound()
       reset(timerDuration)
+      roundStartTimeRef.current = Date.now()
       start()
     }
+    queueMicrotask(() => {
+      isTransitioningRef.current = false
+    })
   }
 
   const handleSubmit = async () => {
-    if (!inputValue.trim() || isAiThinking || !isRunning) return
-    const responseTime = Math.round((Date.now() - roundStartTime) / 1000)
     const content = inputValue.trim()
+    if (!content) {
+      setSubmitError('Message cannot be empty.')
+      return
+    }
+    if (content.length > MAX_INPUT_CHARS) {
+      setSubmitError(`Message too long. Max ${MAX_INPUT_CHARS} characters.`)
+      return
+    }
+    if (isAiThinking || !isRunning || isTransitioningRef.current || isSendingRef.current) return
+    setSubmitError(null)
+    isSendingRef.current = true
+    const responseTime = Math.round((Date.now() - roundStartTimeRef.current) / 1000)
     setInputValue('')
-    await onSendMessage(content, responseTime, timerDuration)
+    let sentSuccessfully = false
+    try {
+      await onSendMessage(content, responseTime, timerDuration)
+      roundStartTimeRef.current = Date.now()
+      sentSuccessfully = true
+    } catch {
+      setSubmitError('Message failed to send. Please try again.')
+      setInputValue(content)
+    } finally {
+      isSendingRef.current = false
+    }
 
-    if (apiKey && session.messages.length >= 1) {
+    if (sentSuccessfully && apiKey && session.messages.length >= 1) {
       const lastAiMsg = session.messages.filter(m => m.role === 'ai').pop()?.content || ''
       if (lastAiMsg) {
         try {
@@ -553,11 +790,12 @@ function DebateScreen({
   const seconds = timeRemaining % 60
   const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`
   const isWarning = timeRemaining <= 15
+  const userMessagesCount = session.messages.filter((m) => m.role === 'user').length
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: colors.background }}>
       {/* Header */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 40, background: 'rgba(10, 8, 4, 0.85)', backdropFilter: 'blur(8px)', borderBottom: `1px solid ${colors.border}`, padding: '12px 16px' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 40, background: 'rgba(244, 247, 251, 0.84)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${colors.border}`, padding: '12px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={onBack} style={{ padding: 6, borderRadius: 8, background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}>
             <ChevronLeft size={20} />
@@ -567,10 +805,36 @@ function DebateScreen({
         </div>
       </header>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', maxWidth: 768, margin: '0 auto', width: '100%' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', maxWidth: 860, margin: '0 auto', width: '100%' }}>
+        <div style={{ display: 'flex', gap: 8, padding: '10px 16px 0' }}>
+          {[
+            { label: 'Mode', value: session.mode.toUpperCase() },
+            { label: 'Side', value: session.side.toUpperCase() },
+            { label: 'Msgs', value: String(userMessagesCount) },
+          ].map((chip) => (
+            <div
+              key={chip.label}
+              style={{
+                borderRadius: 9999,
+                border: `1px solid ${colors.border}`,
+                background: colors.surfaceRaised,
+                padding: '6px 10px',
+                fontSize: 11,
+                color: colors.textSecondary,
+                display: 'inline-flex',
+                gap: 6,
+                alignItems: 'center',
+              }}
+            >
+              <span style={{ color: colors.textDisabled }}>{chip.label}</span>
+              <span style={{ color: colors.textPrimary, fontWeight: 700 }}>{chip.value}</span>
+            </div>
+          ))}
+        </div>
+
         {/* Timer & Score */}
         <div style={{ padding: '12px 16px' }}>
-          <div style={{ background: colors.surface, borderRadius: 16, padding: 12, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ background: colors.surface, borderRadius: 18, padding: 14, display: 'flex', alignItems: 'center', gap: 16, border: `1px solid ${colors.border}` }}>
             <div style={{ fontSize: 24, fontWeight: 700, color: isWarning ? colors.error : colors.goldPrimary, animation: isWarning ? 'pulse 0.5s infinite' : 'none' }}>
               {timeString}
             </div>
@@ -582,7 +846,7 @@ function DebateScreen({
                     style={{
                       flex: 1, height: 4, borderRadius: 2,
                       background: session.rounds.some(r => r.number === i + 1) ? colors.goldPrimary :
-                        i + 1 === currentRound ? 'rgba(212, 168, 67, 0.5)' : colors.border,
+                        i + 1 === currentRound ? 'rgba(10,132,255,0.35)' : colors.border,
                     }}
                   />
                 ))}
@@ -624,8 +888,8 @@ function DebateScreen({
                 maxWidth: '75%',
                 borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                 padding: '12px 16px',
-                background: msg.role === 'user' ? colors.goldGlow : colors.surfaceRaised,
-                border: `1px solid ${msg.role === 'user' ? 'rgba(212, 168, 67, 0.3)' : colors.border}`,
+                background: msg.role === 'user' ? 'rgba(10,132,255,0.13)' : colors.surfaceRaised,
+                border: `1px solid ${msg.role === 'user' ? 'rgba(10,132,255,0.32)' : colors.border}`,
               }}>
                 <p style={{ margin: 0, fontSize: 14, color: colors.textPrimary, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
               </div>
@@ -649,26 +913,26 @@ function DebateScreen({
         {/* Coach Tip */}
         {coachTip && (
           <div style={{ padding: '0 16px 8px' }}>
-            <div style={{ background: 'rgba(28, 24, 16, 0.7)', backdropFilter: 'blur(12px)', borderRadius: 16, padding: 12, fontSize: 14, color: colors.textPrimary }}>
+            <div style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', borderRadius: 16, padding: 12, fontSize: 14, color: colors.textPrimary, border: `1px solid ${colors.border}` }}>
               <span style={{ color: colors.goldMuted, fontWeight: 500 }}>💡 Coach: </span>{coachTip}
             </div>
           </div>
         )}
 
         {/* Input */}
-        <div style={{ position: 'sticky', bottom: 0, background: 'rgba(10, 8, 4, 0.92)', backdropFilter: 'blur(12px)', borderTop: `1px solid ${colors.border}`, padding: 12 }}>
+        <div style={{ position: 'sticky', bottom: 0, background: 'rgba(244, 247, 251, 0.94)', backdropFilter: 'blur(12px)', borderTop: `1px solid ${colors.border}`, padding: 12 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
             <textarea
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => { setInputValue(e.target.value.slice(0, MAX_INPUT_CHARS)); if (submitError) setSubmitError(null) }}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit() }}
               placeholder="Make your argument..."
-              disabled={isAiThinking || !isRunning}
+              disabled={isAiThinking || !isRunning || isTransitioningRef.current}
               rows={1}
               style={{
                 flex: 1,
                 padding: '12px 16px',
-                borderRadius: 10,
+                borderRadius: 14,
                 background: colors.surfaceRaised,
                 border: `1px solid ${colors.border}`,
                 color: colors.textPrimary,
@@ -677,15 +941,16 @@ function DebateScreen({
                 outline: 'none',
                 maxHeight: 120,
                 fontFamily: 'inherit',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
               }}
             />
             <button
               onClick={handleSubmit}
-              disabled={!inputValue.trim() || isAiThinking || !isRunning}
+              disabled={!inputValue.trim() || isAiThinking || !isRunning || isTransitioningRef.current}
               style={{
-                width: 44, height: 44, borderRadius: 10,
+                width: 46, height: 46, borderRadius: 14,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: inputValue.trim() && !isAiThinking && isRunning ? colors.goldPrimary : colors.surfaceRaised,
+                background: inputValue.trim() && !isAiThinking && isRunning ? 'linear-gradient(135deg, #0A84FF, #5CA8FF)' : colors.surfaceRaised,
                 color: inputValue.trim() && !isAiThinking && isRunning ? colors.background : colors.textDisabled,
                 border: 'none', cursor: inputValue.trim() && !isAiThinking && isRunning ? 'pointer' : 'not-allowed',
               }}
@@ -697,53 +962,15 @@ function DebateScreen({
               )}
             </button>
           </div>
+          {submitError && <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.error, textAlign: 'left' }}>{submitError}</p>}
+          <p style={{ margin: '6px 0 0', fontSize: 10, color: inputValue.length > MAX_INPUT_CHARS - 120 ? colors.error : colors.textDisabled, textAlign: 'right' }}>
+            {inputValue.length}/{MAX_INPUT_CHARS}
+          </p>
           <p style={{ margin: '8px 0 0', fontSize: 10, color: colors.textDisabled, textAlign: 'center' }}>Press Cmd+Enter to send</p>
         </div>
       </div>
 
-      {/* Round End Overlay */}
-      <AnimatePresence>
-        {showRoundEnd && lastRound && (
-          <motion.div
-            style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div style={{ position: 'absolute', inset: 0, background: 'rgba(28, 24, 16, 0.9)', backdropFilter: 'blur(12px)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
-            <motion.div
-              style={{ position: 'relative', zIndex: 10, textAlign: 'center', maxWidth: 320 }}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-            >
-              <div style={{
-                width: 64, height: 64, borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '0 auto 16px',
-                background: lastRound.winner === 'user' ? 'rgba(39, 174, 96, 0.2)' : lastRound.winner === 'ai' ? 'rgba(192, 57, 43, 0.2)' : colors.goldGlow,
-                color: lastRound.winner === 'user' ? colors.success : lastRound.winner === 'ai' ? colors.error : colors.goldPrimary,
-              }}>
-                {lastRound.winner === 'user' ? <Trophy size={32} /> : lastRound.winner === 'ai' ? <XIcon size={32} /> : <Minus size={32} />}
-              </div>
-              <h2 style={{ margin: '0 0 8px', fontSize: 32, fontWeight: 700, color: colors.textPrimary }}>Round {lastRound.number}</h2>
-              <p style={{
-                margin: '0 0 16px', fontSize: 24, fontWeight: 700,
-                color: lastRound.winner === 'user' ? colors.success : lastRound.winner === 'ai' ? colors.error : colors.goldPrimary,
-              }}>
-                {lastRound.winner === 'user' ? 'You Won!' : lastRound.winner === 'ai' ? 'FlipSide Won' : "It's a Tie!"}
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 24, fontSize: 14 }}>
-                <span style={{ color: colors.textSecondary }}>You: <span style={{ color: colors.goldPrimary, fontWeight: 700 }}>{lastRound.userScore}</span></span>
-                <span style={{ color: colors.textDisabled }}>|</span>
-                <span style={{ color: colors.textSecondary }}>FlipSide: <span style={{ color: colors.goldPrimary, fontWeight: 700 }}>{lastRound.aiScore}</span></span>
-              </div>
-              <Button onClick={handleContinue} size="lg" fullWidth>
-                {currentRound >= totalRounds ? 'See Results' : 'Next Round →'}
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Round transition is automatic to prevent blocking full-screen overlays */}
     </div>
   )
 }
@@ -763,6 +990,8 @@ function StatsScreen({
 
   const userMessages = session.messages.filter(m => m.role === 'user').length
   const userWins = session.rounds.filter(r => r.winner === 'user').length
+  const totalPoints = Math.max(1, session.totalUserScore + session.totalAiScore)
+  const userWinRatio = Math.round((session.totalUserScore / totalPoints) * 100)
 
   const handleExport = () => {
     const lines = [
@@ -799,7 +1028,7 @@ function StatsScreen({
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
         {/* Verdict */}
         <motion.div
-          style={{ background: 'rgba(28, 24, 16, 0.7)', backdropFilter: 'blur(12px)', borderRadius: 16, padding: 24, textAlign: 'center', marginBottom: 24 }}
+          style={{ background: 'linear-gradient(160deg, rgba(255,255,255,0.96), rgba(246,249,253,0.96))', backdropFilter: 'blur(12px)', borderRadius: 20, padding: 24, textAlign: 'center', marginBottom: 24, border: `1px solid ${colors.border}` }}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -831,7 +1060,7 @@ function StatsScreen({
           ].map((stat, i) => (
             <motion.div
               key={stat.label}
-              style={{ background: colors.surfaceRaised, borderRadius: 16, padding: 16, textAlign: 'center' }}
+              style={{ background: colors.surfaceRaised, borderRadius: 16, padding: 16, textAlign: 'center', border: `1px solid ${colors.border}` }}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 + 0.2 }}
@@ -842,6 +1071,16 @@ function StatsScreen({
           ))}
         </div>
 
+        <div style={{ marginBottom: 20, borderRadius: 16, border: `1px solid ${colors.border}`, background: colors.surfaceRaised, padding: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: colors.textSecondary }}>Performance Edge</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: colors.goldPrimary }}>{userWinRatio}%</span>
+          </div>
+          <div style={{ height: 8, borderRadius: 9999, background: '#E9EFF6', overflow: 'hidden' }}>
+            <div style={{ width: `${userWinRatio}%`, height: '100%', background: 'linear-gradient(90deg, #0A84FF, #5CA8FF)' }} />
+          </div>
+        </div>
+
         {/* Round Timeline */}
         <div style={{ overflowX: 'auto', paddingBottom: 8, marginBottom: 24 }}>
           <div style={{ display: 'flex', gap: 12, minWidth: 'max-content' }}>
@@ -850,8 +1089,8 @@ function StatsScreen({
                 key={round.number}
                 style={{
                   width: 80, flexShrink: 0, borderRadius: 16, padding: 12, textAlign: 'center',
-                  background: round.winner === 'user' ? 'rgba(39, 174, 96, 0.1)' : round.winner === 'ai' ? colors.surfaceRaised : 'rgba(212, 168, 67, 0.1)',
-                  border: `1px solid ${round.winner === 'user' ? 'rgba(39, 174, 96, 0.3)' : round.winner === 'ai' ? colors.border : 'rgba(212, 168, 67, 0.3)'}`,
+                  background: round.winner === 'user' ? 'rgba(48, 208, 163, 0.12)' : round.winner === 'ai' ? colors.surfaceRaised : 'rgba(10,132,255,0.1)',
+                  border: `1px solid ${round.winner === 'user' ? 'rgba(48,208,163,0.28)' : round.winner === 'ai' ? colors.border : 'rgba(10,132,255,0.28)'}`,
                 }}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -885,11 +1124,52 @@ function StatsScreen({
 
 export default function FlipSide2() {
   const [screen, setScreen] = useState<Screen>('setup')
-  const [apiKey] = useLocalStorage<string | null>('flipside_api_key', null)
+  const [apiKey, setApiKey] = useLocalStorage<string | null>('flipside_api_key', null)
+  const [newsApiKey, setNewsApiKey] = useLocalStorage<string | null>('flipside_news_api_key', null)
+  const [backendUrl, setBackendUrl] = useLocalStorage<string>(
+    'flipside_backend_url',
+    (import.meta.env.VITE_BACKEND_URL as string | undefined)?.trim() || 'http://localhost:8787'
+  )
   const [history, setHistory] = useLocalStorage<DebateSession[]>('flipside_history', [])
   const [timerDuration, setTimerDuration] = useState(120)
   const [totalRounds] = useState(5)
   const { toasts, addToast, removeToast } = useToast()
+  const [backendHealthy, setBackendHealthy] = useState(false)
+
+  useEffect(() => {
+    if (!newsApiKey) return
+    const normalized = newsApiKey.trim()
+    if (normalized !== newsApiKey) {
+      setNewsApiKey(normalized || null)
+    }
+  }, [newsApiKey, setNewsApiKey])
+
+  const hasBackend = backendUrl.trim().length > 0
+  const connectionMode: 'backend' | 'direct' | 'fallback' = hasBackend && backendHealthy
+    ? 'backend'
+    : apiKey
+      ? 'direct'
+      : 'fallback'
+
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      if (!hasBackend) {
+        setBackendHealthy(false)
+        return
+      }
+      try {
+        await checkBackendHealth(backendUrl)
+        if (!cancelled) setBackendHealthy(true)
+      } catch {
+        if (!cancelled) setBackendHealthy(false)
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [backendUrl, hasBackend])
 
   const handleDebateEnd = useCallback((verdict: Verdict) => {
     void verdict
@@ -907,6 +1187,7 @@ export default function FlipSide2() {
     resetDebate,
   } = useDebate({
     apiKey,
+    backendUrl: hasBackend && backendHealthy ? backendUrl : null,
     totalRounds,
     onDebateEnd: handleDebateEnd,
   })
@@ -937,19 +1218,44 @@ export default function FlipSide2() {
   }, [resetDebate, setHistory])
 
   return (
-    <div style={{ minHeight: '100vh', background: colors.background }}>
+    <div style={{ minHeight: '100vh', background: colors.background, position: 'relative', overflow: 'hidden' }}>
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'radial-gradient(900px 500px at 12% -10%, rgba(10,132,255,0.25), transparent 60%), radial-gradient(900px 600px at 100% 0%, rgba(48,208,163,0.14), transparent 55%)',
+          pointerEvents: 'none',
+        }}
+      />
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         * { box-sizing: border-box; }
         input::placeholder, textarea::placeholder { color: var(--color-text-disabled); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #243347; border-radius: 999px; }
+        ::-webkit-scrollbar-track { background: transparent; }
       `}</style>
       
+      <div style={{ position: 'relative', zIndex: 1 }}>
       <AnimatePresence mode="wait">
         {screen === 'setup' && (
           <motion.div key="setup" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={pageTransition}>
-            <SetupScreen onStart={handleStart} history={history} onDeleteHistory={handleDeleteHistory} />
+            <SetupScreen
+              onStart={handleStart}
+              history={history}
+              onDeleteHistory={handleDeleteHistory}
+              apiKey={apiKey}
+              onApiKeyChange={setApiKey}
+              backendUrl={backendUrl}
+              onBackendUrlChange={setBackendUrl}
+              newsApiKey={newsApiKey}
+              onNewsApiKeyChange={setNewsApiKey}
+              connectionMode={connectionMode}
+            />
           </motion.div>
         )}
 
@@ -978,6 +1284,7 @@ export default function FlipSide2() {
       </AnimatePresence>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
     </div>
   )
 }

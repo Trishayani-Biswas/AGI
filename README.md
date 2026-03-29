@@ -4,42 +4,57 @@ FlipSide 2 is an AI-assisted debate app with:
 
 - Rich React/Vite frontend experience
 - Local-first debate history and transcript exports
-- Optional Gemini API usage
+- Optional Anthropic API usage
+- Backend debate endpoint for dynamic rebuttals (`/v1/debate`)
 - Backend scaffold for production evolution (`/health`, history, multiplayer room creation, and webhooks)
 
-## Run locally
+## Localhost setup (frontend + backend)
 
-Install dependencies:
+1. Install dependencies:
 
 ```bash
 npm install
 ```
 
-Start frontend:
+2. Create `.env` from `.env.example` and set values:
 
-```bash
-npm run dev
+```text
+VITE_BACKEND_URL=http://localhost:8787
+ANTHROPIC_API_KEY=your_anthropic_key
+NEWS_API_KEY=your_newsapi_key
+CORS_ORIGIN=http://localhost:5173
+PORT=8787
 ```
 
-Start backend API (new terminal):
+3. Start backend API (terminal 1):
 
 ```bash
 npm run backend
 ```
 
-Default backend address is `http://localhost:8787`.
+4. Start frontend (terminal 2):
 
-In the app setup screen, set **Future Backend URL** to:
-
-```text
-http://localhost:8787
+```bash
+npm run dev
 ```
 
-Then use:
+Expected local URLs:
 
-- **Import API** to load history from backend
-- **Sync API** to push local history to backend
-- **Create Room** (Multiplayer Beta) to create a backend-backed room code
+- Frontend: `http://localhost:5173`
+- Backend health: `http://localhost:8787/health`
+- Debate endpoint: `http://localhost:8787/v1/debate`
+- News endpoint: `http://localhost:8787/v1/news?q=ai&limit=6`
+
+In the setup screen, you can run in:
+
+- **Backend + Anthropic (primary)**: set backend URL; server uses `ANTHROPIC_API_KEY`
+- **Direct Anthropic key**: leave backend empty, provide key in-app
+- **Fallback**: no key configured, deterministic non-API responses
+
+The setup UI also links key acquisition pages:
+
+- Anthropic keys: https://console.anthropic.com/settings/keys
+- NewsAPI keys: https://newsapi.org/register
 
 ## API scaffold
 
@@ -48,6 +63,8 @@ Then use:
 - `POST /v1/history` — save one or many debates
 - `POST /v1/multiplayer/rooms` — create a multiplayer room
 - `POST /v1/webhooks/events` — ingest events (`X-Api-Key` required only if `WEBHOOK_SECRET` is set)
+- `POST /v1/debate` — generate a real-time debate reply
+- `GET /v1/news?q=...&limit=...` — retrieve news topic suggestions (NewsAPI + deterministic fallback)
 
 Data persists to JSON files in `server/data/` (gitignored).
 
@@ -56,7 +73,9 @@ Data persists to JSON files in `server/data/` (gitignored).
 - `PORT` — backend port (default `8787`)
 - `CORS_ORIGIN` — allowed origin for backend CORS (default `*`)
 - `WEBHOOK_SECRET` — optional API key required by webhook endpoint
-- `VITE_GEMINI_API_KEY` — optional frontend default Gemini key
+- `ANTHROPIC_API_KEY` — optional backend Anthropic key (server-side)
+- `NEWS_API_KEY` — optional backend NewsAPI key (server-side)
+- `VITE_BACKEND_URL` — frontend backend base URL (enables `/v1/debate` usage)
 
 ## Build and quality checks
 
