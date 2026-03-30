@@ -55,13 +55,14 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: #000008;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #root {
   min-height: 100vh;
-  width: 100vw;
-  overflow: hidden;
+  width: 100%;
+  overflow: visible;
 }
 
 /* Cosmic glass surface */
