@@ -1,0 +1,16 @@
+{
+    "findings": [
+        "Climate change is driven by increased greenhouse gas emissions from human activities",
+        "Global temperatures have risen approximately 1.1°C since pre-industrial times",
+        "Ice sheets and glaciers are melting at accelerating rates",
+        "Sea levels have risen 8-9 inches in the past 150 years"
+    ],
+    "confidence": 0.95,
+    "sources": [
+        "https://www.ipcc.ch/ar6/",
+        "https://climate.nasa.gov/evidence/",
+        "https://www.noaa.gov/climate",
+        "https://www.ncei.noaa.gov/products/global-warming-and-heat-index"
+    ],
+    "raw_output": "Based on comprehensive scientific evidence, climate change is a well-documented phenomenon with clear supporting data from multiple authoritative sources..."
+}

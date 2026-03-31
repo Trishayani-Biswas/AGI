@@ -1,0 +1,16 @@
+{
+    "findings": [
+        "Climate models have historically overestimated warming rates",
+        "Solar activity variations may play a larger role than currently credited",
+        "Urban heat island effects skew temperature measurement stations",
+        "Some climate predictions from the 1980s and 90s have not materialized"
+    ],
+    "confidence": 0.72,
+    "sources": [
+        "https://www.heartland.org/",
+        "https://www.icsc.org/",
+        "https://principia-scientific.org/",
+        "https://www.co2coalition.org/"
+    ],
+    "raw_output": "While climate change is occurring, there are important counterarguments regarding the severity and attribution, with evidence suggesting natural cycles and measurement issues..."
+}
