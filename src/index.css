@@ -1,5 +1,5 @@
 :root {
-    font-family: 'Courier New', Courier, monospace;
+    font-family: 'Avenir Next', 'Segoe UI Variable', 'Segoe UI', sans-serif;
     line-height: 1.5;
     font-weight: 400;
 }
@@ -12,28 +12,40 @@ body {
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    background: #000510;
+    background:
+        radial-gradient(circle at 15% 0%, rgba(255, 126, 88, 0.18), transparent 32%),
+        radial-gradient(circle at 88% 12%, rgba(65, 167, 255, 0.2), transparent 36%),
+        linear-gradient(180deg, #040a1a 0%, #07112c 48%, #050d22 100%);
     color: #c8dcff;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 #root {
     min-height: 100vh;
-    width: 100vw;
+    width: 100%;
     margin: 0;
     padding: 0;
 }
 
 button {
-    font-family: 'Courier New', Courier, monospace;
-}
-
-/* Hide scrollbars for cleaner 3D space */
-::-webkit-scrollbar {
-    display: none;
+    font-family: 'Avenir Next', 'Segoe UI Variable', 'Segoe UI', sans-serif;
 }
 
 html {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(142, 188, 255, 0.45) rgba(11, 22, 44, 0.25);
+}
+
+::-webkit-scrollbar {
+    width: 11px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(11, 22, 44, 0.25);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(142, 188, 255, 0.45);
+    border-radius: 8px;
 }
