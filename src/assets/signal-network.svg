@@ -1,0 +1,45 @@
+<svg width="760" height="500" viewBox="0 0 760 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="0" x2="680" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#14233F"/>
+      <stop offset="1" stop-color="#0B1326"/>
+    </linearGradient>
+    <linearGradient id="line" x1="90" y1="90" x2="620" y2="380" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#71CCFF"/>
+      <stop offset="1" stop-color="#8DFFCF"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="14" y="14" width="732" height="472" rx="28" fill="url(#bg)" stroke="#3D5A8D" stroke-opacity="0.5"/>
+  <g stroke="url(#line)" stroke-width="2.2" stroke-linecap="round" filter="url(#glow)">
+    <path d="M130 374L234 279L348 336L456 206L594 268"/>
+    <path d="M130 240L248 178L352 214L468 124L594 160" opacity="0.65"/>
+    <path d="M132 154L232 118L354 122L468 72L596 88" opacity="0.35"/>
+  </g>
+  <g fill="#A9DFFF">
+    <circle cx="130" cy="374" r="7"/>
+    <circle cx="234" cy="279" r="7"/>
+    <circle cx="348" cy="336" r="7"/>
+    <circle cx="456" cy="206" r="7"/>
+    <circle cx="594" cy="268" r="7"/>
+  </g>
+  <g fill="#8AFFCB">
+    <circle cx="130" cy="240" r="6"/>
+    <circle cx="248" cy="178" r="6"/>
+    <circle cx="352" cy="214" r="6"/>
+    <circle cx="468" cy="124" r="6"/>
+    <circle cx="594" cy="160" r="6"/>
+  </g>
+  <g fill="#E4F4FF" opacity="0.9" font-family="Segoe UI, sans-serif" font-size="16">
+    <text x="90" y="66">Multi-Agent Signal Graph</text>
+    <text x="90" y="430" opacity="0.75">Advocate</text>
+    <text x="300" y="430" opacity="0.75">Skeptic</text>
+    <text x="490" y="430" opacity="0.75">Domain</text>
+  </g>
+</svg>
