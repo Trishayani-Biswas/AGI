@@ -1,10 +1,7 @@
+import Space3D from './components/Space3D'
+
 function App() {
-  return (
-    <main className="app">
-      <h1>FlipSide Reset Complete</h1>
-      <p>Ready for your structured project spec.</p>
-    </main>
-  )
+  return <Space3D />
 }
 
 export default App
