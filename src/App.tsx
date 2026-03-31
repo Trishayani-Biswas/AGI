@@ -1,9 +1,10 @@
+import { GalacticSpace } from './components/GalacticSpace'
+
 function App() {
   return (
-    <main className="app">
-      <h1>FlipSide Reset Complete</h1>
-      <p>Ready for your structured project spec.</p>
-    </main>
+    <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden' }}>
+      <GalacticSpace />
+    </div>
   )
 }
 

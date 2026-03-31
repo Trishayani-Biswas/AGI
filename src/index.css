@@ -1,5 +1,5 @@
 :root {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Courier New', Courier, monospace;
     line-height: 1.5;
     font-weight: 400;
 }
@@ -10,27 +10,30 @@
 
 body {
     margin: 0;
+    padding: 0;
     min-height: 100vh;
-    background: #f5f7fb;
-    color: #162034;
+    background: #000510;
+    color: #c8dcff;
+    overflow: hidden;
 }
 
 #root {
     min-height: 100vh;
-}
-
-.app {
-    min-height: 100vh;
-    display: grid;
-    place-content: center;
-    text-align: center;
-    padding: 2rem;
-}
-
-h1 {
-    margin: 0 0 0.75rem;
-}
-
-p {
+    width: 100vw;
     margin: 0;
+    padding: 0;
+}
+
+button {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* Hide scrollbars for cleaner 3D space */
+::-webkit-scrollbar {
+    display: none;
+}
+
+html {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
