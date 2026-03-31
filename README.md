@@ -18,7 +18,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173
+Open <http://localhost:5173>
 
 ## Build
 
@@ -29,7 +29,7 @@ npm run preview
 
 ## Project Structure
 
-```
+```text
 src/
 ├── components/          # React components (build to spec)
 ├── pages/              # Page-level components
@@ -50,6 +50,7 @@ tests/fixtures/         # Mock API responses for testing
 ## Development Workflow
 
 ### Phase 1: Isolation (Build with Mock Data)
+
 Start with components rendered against fixtures from `tests/fixtures/`:
 
 ```bash
@@ -59,6 +60,7 @@ npm run dev
 Test components with hardcoded mock data before backend integration.
 
 ### Phase 2: Integration (Connect to Backend)
+
 Once backend API is live, integrate via the `ariaClient` and `useResearch` hook:
 
 ```typescript
@@ -66,7 +68,19 @@ const { data, loading, error } = useResearch(requestId);
 ```
 
 ### Phase 3: Polish (Styling & UX)
+
 Add error states, loading states, responsive design, and accessibility.
+
+## UI Checklist
+
+Use this checklist before merging UI changes:
+
+- Keep layout and component styling in CSS files, not inline style props.
+- Preserve fullscreen 3D canvas behavior in `App` + `GalacticSpace`.
+- Keep navigation controls working: drag to orbit + `▲ ◄ ► ▼` buttons.
+- Keep the camera position readout visible and updating.
+- Maintain cross-browser glass effects with both `backdrop-filter` and `-webkit-backdrop-filter`.
+- Run `npm run build` and ensure it passes before committing.
 
 ## Testing
 
