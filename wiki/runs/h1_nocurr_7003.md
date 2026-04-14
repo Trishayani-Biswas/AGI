@@ -1,7 +1,5 @@
 # Run: h1_nocurr_7003
 
-Generated: 2026-04-14 18:50:46 UTC
-
 ## Snapshot
 
 - Rank by robustness: 11

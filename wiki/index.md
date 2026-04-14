@@ -1,7 +1,5 @@
 # AGI LLM Wiki
 
-Generated: 2026-04-14 18:50:46 UTC
-
 This wiki follows the Karpathy LLM Wiki pattern for persistent, compounding experiment memory.
 Raw run outputs remain source-of-truth; this wiki is the maintained synthesis layer.
 

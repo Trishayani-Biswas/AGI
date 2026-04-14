@@ -14,6 +14,7 @@ Mastery gate:
 Now:
 - Implemented observatory report generator with anomaly markers, policy-family tags, compact lineage timelines, campaign drift metrics, auto hypothesis cards, and automatic intervention recommendations: `scripts/build_experiment_observatory.py`.
 - Implemented persistent AGI wiki memory layer (raw sources -> wiki -> schema) with automated ingest/index/log maintenance: `scripts/build_agi_wiki.py`, `wiki/`, `AGI_WIKI.md`.
+- Implemented automatic memory orchestration pipeline that refreshes compare + observatory + wiki + lint outputs after runs and via hook triggers: `scripts/agi_memory_autosync.py`, `scripts/lint_agi_wiki.py`, `.github/hooks/agi-memory-sync.json`.
 
 Next checkpoints:
 1. Add cross-run causal ablation summaries for major metric jumps.

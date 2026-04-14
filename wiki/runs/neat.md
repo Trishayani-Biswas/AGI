@@ -1,7 +1,5 @@
 # Run: neat
 
-Generated: 2026-04-14 18:50:46 UTC
-
 ## Snapshot
 
 - Rank by robustness: 25
@@ -17,7 +15,7 @@ Generated: 2026-04-14 18:50:46 UTC
 ## Raw Source Artifacts
 
 - [summary.json](../../outputs/neat/summary.json)
-- [robustness.json](../../outputs/neat/robustness.json)
+- robustness.json: not available
 - [history.json](../../outputs/neat/history.json)
 
 ## Interpretation

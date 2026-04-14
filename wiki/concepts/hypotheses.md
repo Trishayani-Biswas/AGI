@@ -1,7 +1,5 @@
 # Hypothesis Board
 
-Generated: 2026-04-14 18:50:46 UTC
-
 Source: [../../outputs/experiment_observatory.md](../../outputs/experiment_observatory.md)
 
 ## Hypothesis Cards (Auto-Evaluated)

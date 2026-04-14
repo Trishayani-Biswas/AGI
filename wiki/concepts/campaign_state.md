@@ -1,7 +1,5 @@
 # Campaign State
 
-Generated: 2026-04-14 18:50:46 UTC
-
 ## Current Snapshot
 
 - Total NEAT runs discovered: 27

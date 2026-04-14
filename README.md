@@ -282,6 +282,46 @@ Maintain wiki in near real time while experiments are running:
 
 The script updates run pages, concept pages, `wiki/index.md`, and append-only `wiki/log.md`.
 
+### Fully automatic memory sync pipeline
+
+This project now has an always-on AGI memory sync pipeline:
+
+- compare report refresh (`outputs/neat_comparison_report.md`)
+- observatory refresh (`outputs/experiment_observatory.md`)
+- wiki refresh (`wiki/`)
+- wiki lint pass (`wiki/lint_report.md`)
+
+Automation triggers:
+
+- after each `run_neat_training.py` run (auto by default)
+- after each `run_simulation.py` run (auto by default)
+- on Copilot session start and prompt submit via hook trigger (`.github/hooks/agi-memory-sync.json`)
+
+Disable post-run autosync if needed:
+
+```bash
+.venv/bin/python run_neat_training.py --no-auto-memory-sync ...
+.venv/bin/python run_simulation.py --no-auto-memory-sync ...
+```
+
+Manual one-shot autosync:
+
+```bash
+.venv/bin/python scripts/agi_memory_autosync.py --sync-once --outputs-dir outputs --wiki-dir wiki --max-runs 40
+```
+
+Continuous memory daemon mode:
+
+```bash
+.venv/bin/python scripts/agi_memory_autosync.py --watch --poll-seconds 20 --outputs-dir outputs --wiki-dir wiki --max-runs 40
+```
+
+Search the wiki library quickly:
+
+```bash
+.venv/bin/python scripts/query_agi_wiki.py "curriculum robustness fail" --wiki-dir wiki --top-k 8
+```
+
 ---
 
 ## What Viewers Should See
@@ -406,6 +446,15 @@ Use the observatory report plus leaderboard together to create that experience.
 
 - `AGI_WIKI.md`
 : wiki schema and maintenance contract for ingest/query/lint operations.
+
+- `scripts/agi_memory_autosync.py`
+: orchestration pipeline that auto-updates compare + observatory + wiki + lint outputs.
+
+- `scripts/lint_agi_wiki.py`
+: link and structure health checks for wiki integrity.
+
+- `scripts/query_agi_wiki.py`
+: lightweight local wiki retrieval for memory queries.
 
 ---
 

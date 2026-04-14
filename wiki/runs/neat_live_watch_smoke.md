@@ -1,7 +1,5 @@
 # Run: neat_live_watch_smoke
 
-Generated: 2026-04-14 18:50:46 UTC
-
 ## Snapshot
 
 - Rank by robustness: 23

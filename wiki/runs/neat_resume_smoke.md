@@ -1,7 +1,5 @@
 # Run: neat_resume_smoke
 
-Generated: 2026-04-14 18:50:46 UTC
-
 ## Snapshot
 
 - Rank by robustness: 24
@@ -17,7 +15,7 @@ Generated: 2026-04-14 18:50:46 UTC
 ## Raw Source Artifacts
 
 - [summary.json](../../outputs/neat_resume_smoke/summary.json)
-- [robustness.json](../../outputs/neat_resume_smoke/robustness.json)
+- robustness.json: not available
 - [history.json](../../outputs/neat_resume_smoke/history.json)
 
 ## Interpretation

@@ -4,6 +4,8 @@ import argparse
 from dataclasses import replace
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 from .neat_training import NeatSurvivalTrainer, NeatTrainingConfig
 
@@ -26,6 +28,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--robustness-days", type=int, default=None, help="Days per unseen-seed robustness episode")
     parser.add_argument("--robustness-founders", type=int, default=None, help="Founders used in robustness episodes")
     parser.add_argument("--curriculum", action="store_true", help="Enable staged world regimes to pressure broader adaptation")
+    parser.add_argument(
+        "--no-auto-memory-sync",
+        action="store_true",
+        help="Disable automatic AGI memory autosync after training",
+    )
     return parser.parse_args()
 
 
@@ -68,7 +75,34 @@ def main() -> None:
     trainer = NeatSurvivalTrainer(config)
     resume_checkpoint = Path(args.resume) if args.resume is not None else None
     summary = trainer.train(resume_checkpoint=resume_checkpoint)
+
+    if not args.no_auto_memory_sync:
+        _maybe_auto_sync_memory(outputs_dir=config.output_dir)
+
     print(json.dumps(summary, indent=2, ensure_ascii=True))
+
+
+def _maybe_auto_sync_memory(outputs_dir: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    sync_script = repo_root / "scripts" / "agi_memory_autosync.py"
+    if not sync_script.exists():
+        return
+
+    command = [
+        sys.executable,
+        str(sync_script),
+        "--sync-once",
+        "--outputs-dir",
+        str(outputs_dir),
+        "--wiki-dir",
+        str(repo_root / "wiki"),
+    ]
+
+    try:
+        subprocess.run(command, cwd=str(repo_root), check=False)
+    except OSError:
+        # Training result should still be usable even if memory sync fails.
+        return
 
 
 if __name__ == "__main__":

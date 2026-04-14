@@ -1,7 +1,5 @@
 # Run: neat_stage2_hard_runA
 
-Generated: 2026-04-14 18:50:46 UTC
-
 ## Snapshot
 
 - Rank by robustness: 15

@@ -217,11 +217,9 @@ def _write_if_changed(path: Path, content: str) -> bool:
     return True
 
 
-def _render_run_page(row: RunRow, rank: int, generated_at: str, wiki_dir: Path) -> str:
+def _render_run_page(row: RunRow, rank: int, wiki_dir: Path) -> str:
     page_path = wiki_dir / "runs" / f"{row.run}.md"
     summary_rel = _relative_link(page_path, row.summary_path)
-    robustness_rel = _relative_link(page_path, row.robustness_path)
-    history_rel = _relative_link(page_path, row.history_path)
 
     hist_gen = "n/a"
     if isinstance(row.history_points, int) and isinstance(row.generations, int):
@@ -229,8 +227,6 @@ def _render_run_page(row: RunRow, rank: int, generated_at: str, wiki_dir: Path) 
 
     lines: List[str] = []
     lines.append(f"# Run: {row.run}")
-    lines.append("")
-    lines.append(f"Generated: {generated_at}")
     lines.append("")
     lines.append("## Snapshot")
     lines.append("")
@@ -250,8 +246,18 @@ def _render_run_page(row: RunRow, rank: int, generated_at: str, wiki_dir: Path) 
     lines.append("## Raw Source Artifacts")
     lines.append("")
     lines.append(f"- [summary.json]({summary_rel})")
-    lines.append(f"- [robustness.json]({robustness_rel})")
-    lines.append(f"- [history.json]({history_rel})")
+    if row.robustness_path.exists():
+        robustness_rel = _relative_link(page_path, row.robustness_path)
+        lines.append(f"- [robustness.json]({robustness_rel})")
+    else:
+        lines.append("- robustness.json: not available")
+
+    if row.history_path.exists():
+        history_rel = _relative_link(page_path, row.history_path)
+        lines.append(f"- [history.json]({history_rel})")
+    else:
+        lines.append("- history.json: not available")
+
     lines.append("")
     lines.append("## Interpretation")
     lines.append("")
@@ -271,14 +277,12 @@ def _render_run_page(row: RunRow, rank: int, generated_at: str, wiki_dir: Path) 
     return "\n".join(lines) + "\n"
 
 
-def _render_campaign_state(rows: Sequence[RunRow], generated_at: str, wiki_dir: Path) -> str:
+def _render_campaign_state(rows: Sequence[RunRow], wiki_dir: Path) -> str:
     full_rows = [row for row in rows if row.run_completed]
     best = full_rows[0] if full_rows else (rows[0] if rows else None)
 
     lines: List[str] = []
     lines.append("# Campaign State")
-    lines.append("")
-    lines.append(f"Generated: {generated_at}")
     lines.append("")
     lines.append("## Current Snapshot")
     lines.append("")
@@ -326,11 +330,9 @@ def _render_campaign_state(rows: Sequence[RunRow], generated_at: str, wiki_dir: 
     return "\n".join(lines) + "\n"
 
 
-def _render_index(rows: Sequence[RunRow], max_runs: int, generated_at: str) -> str:
+def _render_index(rows: Sequence[RunRow], max_runs: int) -> str:
     lines: List[str] = []
     lines.append("# AGI LLM Wiki")
-    lines.append("")
-    lines.append(f"Generated: {generated_at}")
     lines.append("")
     lines.append("This wiki follows the Karpathy LLM Wiki pattern for persistent, compounding experiment memory.")
     lines.append("Raw run outputs remain source-of-truth; this wiki is the maintained synthesis layer.")
@@ -369,15 +371,12 @@ def _render_index(rows: Sequence[RunRow], max_runs: int, generated_at: str) -> s
 
 def _render_concept_page(
     title: str,
-    generated_at: str,
     source_rel: str,
     section_content: str | None,
     fallback_lines: List[str],
 ) -> str:
     lines: List[str] = []
     lines.append(f"# {title}")
-    lines.append("")
-    lines.append(f"Generated: {generated_at}")
     lines.append("")
     lines.append(f"Source: [{source_rel}]({source_rel})")
     lines.append("")
@@ -433,8 +432,6 @@ def build_wiki(
     rows: Sequence[RunRow],
     max_runs: int,
 ) -> Dict[str, int]:
-    generated_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
     wiki_dir.mkdir(parents=True, exist_ok=True)
     (wiki_dir / "runs").mkdir(parents=True, exist_ok=True)
     (wiki_dir / "concepts").mkdir(parents=True, exist_ok=True)
@@ -443,7 +440,7 @@ def build_wiki(
     run_pages_written = 0
     for idx, row in enumerate(selected_rows, start=1):
         page_path = wiki_dir / "runs" / f"{row.run}.md"
-        page = _render_run_page(row, rank=idx, generated_at=generated_at, wiki_dir=wiki_dir)
+        page = _render_run_page(row, rank=idx, wiki_dir=wiki_dir)
         if _write_if_changed(page_path, page):
             run_pages_written += 1
 
@@ -470,7 +467,6 @@ def build_wiki(
     source_rel = _relative_link(wiki_dir / "concepts" / "hypotheses.md", observatory_path)
     hypotheses_md = _render_concept_page(
         title="Hypothesis Board",
-        generated_at=generated_at,
         source_rel=source_rel,
         section_content=hypotheses_section,
         fallback_lines=[
@@ -484,7 +480,6 @@ def build_wiki(
 
     interventions_md = _render_concept_page(
         title="Interventions",
-        generated_at=generated_at,
         source_rel=source_rel,
         section_content=interventions_section,
         fallback_lines=[
@@ -496,11 +491,11 @@ def build_wiki(
     if _write_if_changed(wiki_dir / "concepts" / "interventions.md", interventions_md):
         concept_writes += 1
 
-    campaign_state_md = _render_campaign_state(rows=rows, generated_at=generated_at, wiki_dir=wiki_dir)
+    campaign_state_md = _render_campaign_state(rows=rows, wiki_dir=wiki_dir)
     if _write_if_changed(wiki_dir / "concepts" / "campaign_state.md", campaign_state_md):
         concept_writes += 1
 
-    index_md = _render_index(rows=rows, max_runs=max_runs, generated_at=generated_at)
+    index_md = _render_index(rows=rows, max_runs=max_runs)
     index_written = 1 if _write_if_changed(wiki_dir / "index.md", index_md) else 0
 
     log_entries_added = _update_log(wiki_dir, selected_rows)

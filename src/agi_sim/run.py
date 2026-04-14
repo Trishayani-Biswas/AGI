@@ -4,6 +4,8 @@ import argparse
 import json
 from dataclasses import replace
 from pathlib import Path
+import subprocess
+import sys
 
 from .config import SimulationConfig
 from .simulation import Simulation
@@ -20,6 +22,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--critic-model", type=str, default=None, help="Ollama model used for critic review")
     parser.add_argument("--verbose-every", type=int, default=None, help="Print cadence in days")
     parser.add_argument("--offline", action="store_true", help="Disable LLM calls and use heuristic brains")
+    parser.add_argument(
+        "--no-auto-memory-sync",
+        action="store_true",
+        help="Disable automatic AGI memory autosync after simulation",
+    )
     return parser.parse_args()
 
 
@@ -53,7 +60,34 @@ def main() -> None:
     config = build_config(args)
     sim = Simulation(config)
     summary = sim.run()
+
+    if not args.no_auto_memory_sync:
+        _maybe_auto_sync_memory(outputs_dir=config.output_dir)
+
     print(json.dumps(summary, indent=2, ensure_ascii=True))
+
+
+def _maybe_auto_sync_memory(outputs_dir: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    sync_script = repo_root / "scripts" / "agi_memory_autosync.py"
+    if not sync_script.exists():
+        return
+
+    command = [
+        sys.executable,
+        str(sync_script),
+        "--sync-once",
+        "--outputs-dir",
+        str(outputs_dir),
+        "--wiki-dir",
+        str(repo_root / "wiki"),
+    ]
+
+    try:
+        subprocess.run(command, cwd=str(repo_root), check=False)
+    except OSError:
+        # Simulation summary should still be returned even if memory sync fails.
+        return
 
 
 if __name__ == "__main__":
