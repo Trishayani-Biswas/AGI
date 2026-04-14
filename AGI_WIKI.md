@@ -61,3 +61,15 @@ Maintain wiki in watch mode:
 ```bash
 .venv/bin/python scripts/build_agi_wiki.py --outputs-dir outputs --wiki-dir wiki --max-runs 30 --watch --watch-interval 20
 ```
+
+Run strict lint (non-zero exit when issues exist):
+
+```bash
+.venv/bin/python scripts/lint_agi_wiki.py --wiki-dir wiki --report-path wiki/lint_report.md --fail-on-issues
+```
+
+Run end-to-end smoke check (build, strict lint, API health/query):
+
+```bash
+bash scripts/smoke_wiki_pipeline.sh
+```

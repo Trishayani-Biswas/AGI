@@ -73,12 +73,14 @@ def _maybe_auto_sync_memory(outputs_dir: Path) -> None:
     if not sync_script.exists():
         return
 
+    sync_outputs_dir = _resolve_autosync_outputs_dir(outputs_dir=outputs_dir)
+
     command = [
         sys.executable,
         str(sync_script),
         "--sync-once",
         "--outputs-dir",
-        str(outputs_dir),
+        str(sync_outputs_dir),
         "--wiki-dir",
         str(repo_root / "wiki"),
     ]
@@ -88,6 +90,16 @@ def _maybe_auto_sync_memory(outputs_dir: Path) -> None:
     except OSError:
         # Simulation summary should still be returned even if memory sync fails.
         return
+
+
+def _resolve_autosync_outputs_dir(outputs_dir: Path) -> Path:
+    resolved = outputs_dir.resolve()
+
+    for candidate in (resolved, *resolved.parents):
+        if candidate.name == "outputs":
+            return candidate
+
+    return resolved
 
 
 if __name__ == "__main__":

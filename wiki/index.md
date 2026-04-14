@@ -11,34 +11,47 @@ Raw run outputs remain source-of-truth; this wiki is the maintained synthesis la
 - [Hypothesis Board](concepts/hypotheses.md): pass/fail/inconclusive hypothesis outcomes.
 - [Interventions](concepts/interventions.md): prioritized actions from current evidence.
 
-## Run Pages (Top 27)
+## Run Pages (Top 40)
 
 | Rank | Run | Complete | Robust Mean | Curriculum | Page |
 | --- | --- | --- | ---: | --- | --- |
-| 1 | h1_nocurr_7002 | yes | 41593.411 | no | [h1_nocurr_7002](runs/h1_nocurr_7002.md) |
-| 2 | h1_curr_7002 | yes | 40959.275 | yes | [h1_curr_7002](runs/h1_curr_7002.md) |
-| 3 | h1_nocurr_7005 | yes | 40677.982 | no | [h1_nocurr_7005](runs/h1_nocurr_7005.md) |
-| 4 | h1_curr_7003 | yes | 40547.667 | yes | [h1_curr_7003](runs/h1_curr_7003.md) |
-| 5 | h1_curr_7006 | yes | 40045.746 | yes | [h1_curr_7006](runs/h1_curr_7006.md) |
-| 6 | neat_world_live_v2_nocurr | yes | 38796.427 | no | [neat_world_live_v2_nocurr](runs/neat_world_live_v2_nocurr.md) |
-| 7 | neat_world_live_v2 | yes | 38554.631 | yes | [neat_world_live_v2](runs/neat_world_live_v2.md) |
-| 8 | neat_live_watch | yes | 38269.429 | n/a | [neat_live_watch](runs/neat_live_watch.md) |
-| 9 | h1_nocurr_7001 | yes | 37445.917 | no | [h1_nocurr_7001](runs/h1_nocurr_7001.md) |
-| 10 | h1_nocurr_7004 | yes | 36969.893 | no | [h1_nocurr_7004](runs/h1_nocurr_7004.md) |
-| 11 | h1_nocurr_7003 | yes | 36476.504 | no | [h1_nocurr_7003](runs/h1_nocurr_7003.md) |
-| 12 | h1_curr_7004 | yes | 36416.870 | yes | [h1_curr_7004](runs/h1_curr_7004.md) |
-| 13 | h1_nocurr_7006 | yes | 29984.537 | no | [h1_nocurr_7006](runs/h1_nocurr_7006.md) |
-| 14 | neat_stage2_hard_runC_fixed | yes | 16888.925 | n/a | [neat_stage2_hard_runC_fixed](runs/neat_stage2_hard_runC_fixed.md) |
-| 15 | neat_stage2_hard_runA | yes | 15588.429 | n/a | [neat_stage2_hard_runA](runs/neat_stage2_hard_runA.md) |
-| 16 | neat_stage2_hard_runD | yes | 15261.653 | n/a | [neat_stage2_hard_runD](runs/neat_stage2_hard_runD.md) |
-| 17 | h1_curr_7001 | yes | 10078.504 | yes | [h1_curr_7001](runs/h1_curr_7001.md) |
-| 18 | neat_stage2_resume_smoke | yes | 8161.470 | n/a | [neat_stage2_resume_smoke](runs/neat_stage2_resume_smoke.md) |
-| 19 | neat_stage2_hard_runB | yes | 3737.861 | n/a | [neat_stage2_hard_runB](runs/neat_stage2_hard_runB.md) |
-| 20 | h1_curr_7005 | yes | 3279.451 | yes | [h1_curr_7005](runs/h1_curr_7005.md) |
-| 21 | neat_world_watch_smoke | yes | 2194.550 | yes | [neat_world_watch_smoke](runs/neat_world_watch_smoke.md) |
-| 22 | neat_stage2_smoke | yes | 1188.214 | n/a | [neat_stage2_smoke](runs/neat_stage2_smoke.md) |
-| 23 | neat_live_watch_smoke | yes | 651.921 | n/a | [neat_live_watch_smoke](runs/neat_live_watch_smoke.md) |
-| 24 | neat_resume_smoke | yes | n/a | n/a | [neat_resume_smoke](runs/neat_resume_smoke.md) |
-| 25 | neat | yes | n/a | n/a | [neat](runs/neat.md) |
-| 26 | neat_stage2_hard_runC | no | 44669.516 | n/a | [neat_stage2_hard_runC](runs/neat_stage2_hard_runC.md) |
-| 27 | neat_run_20260414 | no | n/a | n/a | [neat_run_20260414](runs/neat_run_20260414.md) |
+| 1 | autopilot_live_nocurr_27032 | yes | 46370.700 | no | [autopilot_live_nocurr_27032](runs/autopilot_live_nocurr_27032.md) |
+| 2 | hour_batch_B_nocurr_13131 | yes | 42080.483 | no | [hour_batch_B_nocurr_13131](runs/hour_batch_B_nocurr_13131.md) |
+| 3 | autopilot_live_nocurr_27068 | yes | 41850.942 | no | [autopilot_live_nocurr_27068](runs/autopilot_live_nocurr_27068.md) |
+| 4 | autopilot_live_nocurr_27029 | yes | 41734.485 | no | [autopilot_live_nocurr_27029](runs/autopilot_live_nocurr_27029.md) |
+| 5 | h1_nocurr_7002 | yes | 41593.411 | no | [h1_nocurr_7002](runs/h1_nocurr_7002.md) |
+| 6 | hour_nocurr_10010 | yes | 41511.585 | no | [hour_nocurr_10010](runs/hour_nocurr_10010.md) |
+| 7 | hour_batch_B_nocurr_12121 | yes | 41422.698 | no | [hour_batch_B_nocurr_12121](runs/hour_batch_B_nocurr_12121.md) |
+| 8 | autopilot_live_nocurr_27072 | yes | 41188.705 | no | [autopilot_live_nocurr_27072](runs/autopilot_live_nocurr_27072.md) |
+| 9 | h1_curr_7002 | yes | 40959.275 | yes | [h1_curr_7002](runs/h1_curr_7002.md) |
+| 10 | autopilot_live_nocurr_27016 | yes | 40719.293 | no | [autopilot_live_nocurr_27016](runs/autopilot_live_nocurr_27016.md) |
+| 11 | hour_batch_C_nocurr_17171 | yes | 40692.001 | no | [hour_batch_C_nocurr_17171](runs/hour_batch_C_nocurr_17171.md) |
+| 12 | h1_nocurr_7005 | yes | 40677.982 | no | [h1_nocurr_7005](runs/h1_nocurr_7005.md) |
+| 13 | autopilot_live_nocurr_27003 | yes | 40673.401 | no | [autopilot_live_nocurr_27003](runs/autopilot_live_nocurr_27003.md) |
+| 14 | autopilot_live_nocurr_27005 | yes | 40558.991 | no | [autopilot_live_nocurr_27005](runs/autopilot_live_nocurr_27005.md) |
+| 15 | h1_curr_7003 | yes | 40547.667 | yes | [h1_curr_7003](runs/h1_curr_7003.md) |
+| 16 | autopilot_live_nocurr_27026 | yes | 40504.157 | no | [autopilot_live_nocurr_27026](runs/autopilot_live_nocurr_27026.md) |
+| 17 | hour_batch_B_nocurr_14141 | yes | 40300.822 | no | [hour_batch_B_nocurr_14141](runs/hour_batch_B_nocurr_14141.md) |
+| 18 | autopilot_live_nocurr_27061 | yes | 40244.384 | no | [autopilot_live_nocurr_27061](runs/autopilot_live_nocurr_27061.md) |
+| 19 | autopilot_live_nocurr_27014 | yes | 40208.815 | no | [autopilot_live_nocurr_27014](runs/autopilot_live_nocurr_27014.md) |
+| 20 | autopilot_live_nocurr_27038 | yes | 40074.032 | no | [autopilot_live_nocurr_27038](runs/autopilot_live_nocurr_27038.md) |
+| 21 | autopilot_live_nocurr_27042 | yes | 40072.903 | no | [autopilot_live_nocurr_27042](runs/autopilot_live_nocurr_27042.md) |
+| 22 | h1_curr_7006 | yes | 40045.746 | yes | [h1_curr_7006](runs/h1_curr_7006.md) |
+| 23 | autopilot_live_nocurr_27018 | yes | 40042.755 | no | [autopilot_live_nocurr_27018](runs/autopilot_live_nocurr_27018.md) |
+| 24 | autopilot_live_nocurr_27048 | yes | 40024.179 | no | [autopilot_live_nocurr_27048](runs/autopilot_live_nocurr_27048.md) |
+| 25 | autopilot_live_nocurr_27021 | yes | 39918.934 | no | [autopilot_live_nocurr_27021](runs/autopilot_live_nocurr_27021.md) |
+| 26 | autopilot_live_nocurr_27056 | yes | 39904.809 | no | [autopilot_live_nocurr_27056](runs/autopilot_live_nocurr_27056.md) |
+| 27 | autopilot_live_nocurr_27049 | yes | 39878.720 | no | [autopilot_live_nocurr_27049](runs/autopilot_live_nocurr_27049.md) |
+| 28 | autopilot_live_nocurr_27030 | yes | 39774.109 | no | [autopilot_live_nocurr_27030](runs/autopilot_live_nocurr_27030.md) |
+| 29 | autopilot_live_nocurr_27004 | yes | 39760.176 | no | [autopilot_live_nocurr_27004](runs/autopilot_live_nocurr_27004.md) |
+| 30 | autopilot_live_nocurr_27039 | yes | 39648.430 | no | [autopilot_live_nocurr_27039](runs/autopilot_live_nocurr_27039.md) |
+| 31 | autopilot_live_nocurr_27054 | yes | 39609.465 | no | [autopilot_live_nocurr_27054](runs/autopilot_live_nocurr_27054.md) |
+| 32 | hour_batch_B_curr_16161 | yes | 39563.525 | yes | [hour_batch_B_curr_16161](runs/hour_batch_B_curr_16161.md) |
+| 33 | autopilot_live_nocurr_27065 | yes | 39415.028 | no | [autopilot_live_nocurr_27065](runs/autopilot_live_nocurr_27065.md) |
+| 34 | autopilot_live_nocurr_27051 | yes | 39360.030 | no | [autopilot_live_nocurr_27051](runs/autopilot_live_nocurr_27051.md) |
+| 35 | autopilot_live_nocurr_27044 | yes | 39281.708 | no | [autopilot_live_nocurr_27044](runs/autopilot_live_nocurr_27044.md) |
+| 36 | autopilot_live_nocurr_27027 | yes | 39209.256 | no | [autopilot_live_nocurr_27027](runs/autopilot_live_nocurr_27027.md) |
+| 37 | autopilot_live_nocurr_27035 | yes | 39068.052 | no | [autopilot_live_nocurr_27035](runs/autopilot_live_nocurr_27035.md) |
+| 38 | autopilot_live_nocurr_27036 | yes | 39034.857 | no | [autopilot_live_nocurr_27036](runs/autopilot_live_nocurr_27036.md) |
+| 39 | autopilot_live_nocurr_27055 | yes | 38933.141 | no | [autopilot_live_nocurr_27055](runs/autopilot_live_nocurr_27055.md) |
+| 40 | autopilot_live_nocurr_27052 | yes | 38901.327 | no | [autopilot_live_nocurr_27052](runs/autopilot_live_nocurr_27052.md) |

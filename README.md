@@ -300,6 +300,12 @@ Lint wiki integrity plus claim-evidence coverage:
 .venv/bin/python scripts/lint_agi_wiki.py --wiki-dir wiki --report-path wiki/lint_report.md
 ```
 
+Fail fast when any wiki issue is detected:
+
+```bash
+.venv/bin/python scripts/lint_agi_wiki.py --wiki-dir wiki --report-path wiki/lint_report.md --fail-on-issues
+```
+
 The lint report now checks:
 - broken links
 - orphan run pages
@@ -356,6 +362,44 @@ Example API calls:
 ```bash
 curl -s "http://127.0.0.1:8765/query?q=curriculum%20robustness%20fail&top_k=5" | jq
 curl -s -X POST "http://127.0.0.1:8765/query" -H "Content-Type: application/json" -d '{"query":"interventions", "top_k":3}' | jq
+```
+
+Run a one-command smoke check (build + strict lint + API health/query):
+
+```bash
+bash scripts/smoke_wiki_pipeline.sh
+```
+
+Run an autonomous 1-hour goal push (multi-seed training + analysis refresh):
+
+```bash
+bash scripts/agi_goal_hour_push.sh
+```
+
+The push runner disables per-run autosync during the batch and performs one full memory sync at the end.
+
+Run continuous unattended autopilot (keeps launching runs until budget expires):
+
+```bash
+.venv/bin/python scripts/agi_goal_autopilot.py --budget-minutes 60
+```
+
+Optional knobs for unattended mode:
+
+```bash
+.venv/bin/python scripts/agi_goal_autopilot.py --budget-minutes 60 --max-runs 8 --base-seed 25000 --curriculum-every 6 --run-tag autopilot_evening
+```
+
+Optional custom budget in minutes:
+
+```bash
+BUDGET_MINUTES=75 bash scripts/agi_goal_hour_push.sh
+```
+
+Optional custom run tag to avoid output-folder collisions across batches:
+
+```bash
+RUN_TAG=hour_batch_B BUDGET_MINUTES=60 bash scripts/agi_goal_hour_push.sh
 ```
 
 ---

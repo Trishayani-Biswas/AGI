@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
@@ -173,6 +174,11 @@ def parse_args() -> argparse.Namespace:
         default="wiki/lint_report.md",
         help="Path to markdown lint report",
     )
+    parser.add_argument(
+        "--fail-on-issues",
+        action="store_true",
+        help="Exit with non-zero status when any lint issue is detected",
+    )
     return parser.parse_args()
 
 
@@ -194,6 +200,11 @@ def main() -> None:
         f"claim_evidence_issues={len(concept_claim_issues)} "
         f"report={report_path}"
     )
+
+    total_issues = len(broken_links) + len(orphan_run_pages) + len(concept_claim_issues)
+    if args.fail_on_issues and total_issues > 0:
+        print(f"Wiki lint failed: total_issues={total_issues}", file=sys.stderr)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

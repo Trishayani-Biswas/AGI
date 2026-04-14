@@ -244,3 +244,534 @@ Append-only timeline of wiki ingests and major updates.
 - robustness_mean: 29984.537
 - winner_fitness: 10189.210
 - curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_nocurr_7070
+
+- page: [runs/hour_nocurr_7070.md](runs/hour_nocurr_7070.md)
+- source: [../outputs/hour_nocurr_7070/summary.json](../outputs/hour_nocurr_7070/summary.json)
+- full_generation_run: yes
+- robustness_mean: 33274.231
+- winner_fitness: 8419.642
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_nocurr_8080
+
+- page: [runs/hour_nocurr_8080.md](runs/hour_nocurr_8080.md)
+- source: [../outputs/hour_nocurr_8080/summary.json](../outputs/hour_nocurr_8080/summary.json)
+- full_generation_run: yes
+- robustness_mean: 38692.672
+- winner_fitness: 10585.606
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_nocurr_9090
+
+- page: [runs/hour_nocurr_9090.md](runs/hour_nocurr_9090.md)
+- source: [../outputs/hour_nocurr_9090/summary.json](../outputs/hour_nocurr_9090/summary.json)
+- full_generation_run: yes
+- robustness_mean: 36542.245
+- winner_fitness: 8672.614
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_nocurr_10010
+
+- page: [runs/hour_nocurr_10010.md](runs/hour_nocurr_10010.md)
+- source: [../outputs/hour_nocurr_10010/summary.json](../outputs/hour_nocurr_10010/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41511.585
+- winner_fitness: 11574.624
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_curr_6061
+
+- page: [runs/hour_curr_6061.md](runs/hour_curr_6061.md)
+- source: [../outputs/hour_curr_6061/summary.json](../outputs/hour_curr_6061/summary.json)
+- full_generation_run: yes
+- robustness_mean: 23440.311
+- winner_fitness: 4767.603
+- curriculum_enabled: yes
+
+## [2026-04-14] ingest | hour_curr_7071
+
+- page: [runs/hour_curr_7071.md](runs/hour_curr_7071.md)
+- source: [../outputs/hour_curr_7071/summary.json](../outputs/hour_curr_7071/summary.json)
+- full_generation_run: yes
+- robustness_mean: 1571.639
+- winner_fitness: 9954.648
+- curriculum_enabled: yes
+
+## [2026-04-14] ingest | autosync_fix_smoke
+
+- page: [runs/autosync_fix_smoke.md](runs/autosync_fix_smoke.md)
+- source: [../outputs/autosync_fix_smoke/summary.json](../outputs/autosync_fix_smoke/summary.json)
+- full_generation_run: yes
+- robustness_mean: 5038.834
+- winner_fitness: 800.689
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_batch_B_nocurr_11111
+
+- page: [runs/hour_batch_B_nocurr_11111.md](runs/hour_batch_B_nocurr_11111.md)
+- source: [../outputs/hour_batch_B_nocurr_11111/summary.json](../outputs/hour_batch_B_nocurr_11111/summary.json)
+- full_generation_run: yes
+- robustness_mean: 7788.671
+- winner_fitness: 1726.568
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_batch_B_nocurr_12121
+
+- page: [runs/hour_batch_B_nocurr_12121.md](runs/hour_batch_B_nocurr_12121.md)
+- source: [../outputs/hour_batch_B_nocurr_12121/summary.json](../outputs/hour_batch_B_nocurr_12121/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41422.698
+- winner_fitness: 12462.786
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_batch_B_nocurr_13131
+
+- page: [runs/hour_batch_B_nocurr_13131.md](runs/hour_batch_B_nocurr_13131.md)
+- source: [../outputs/hour_batch_B_nocurr_13131/summary.json](../outputs/hour_batch_B_nocurr_13131/summary.json)
+- full_generation_run: yes
+- robustness_mean: 42080.483
+- winner_fitness: 16572.292
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_batch_B_nocurr_14141
+
+- page: [runs/hour_batch_B_nocurr_14141.md](runs/hour_batch_B_nocurr_14141.md)
+- source: [../outputs/hour_batch_B_nocurr_14141/summary.json](../outputs/hour_batch_B_nocurr_14141/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40300.822
+- winner_fitness: 10995.764
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_batch_B_nocurr_15151
+
+- page: [runs/hour_batch_B_nocurr_15151.md](runs/hour_batch_B_nocurr_15151.md)
+- source: [../outputs/hour_batch_B_nocurr_15151/summary.json](../outputs/hour_batch_B_nocurr_15151/summary.json)
+- full_generation_run: yes
+- robustness_mean: 25459.479
+- winner_fitness: 13678.184
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_batch_B_curr_16161
+
+- page: [runs/hour_batch_B_curr_16161.md](runs/hour_batch_B_curr_16161.md)
+- source: [../outputs/hour_batch_B_curr_16161/summary.json](../outputs/hour_batch_B_curr_16161/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39563.525
+- winner_fitness: 7795.312
+- curriculum_enabled: yes
+
+## [2026-04-14] ingest | hour_batch_C_nocurr_17171
+
+- page: [runs/hour_batch_C_nocurr_17171.md](runs/hour_batch_C_nocurr_17171.md)
+- source: [../outputs/hour_batch_C_nocurr_17171/summary.json](../outputs/hour_batch_C_nocurr_17171/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40692.001
+- winner_fitness: 11989.850
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_batch_C_nocurr_18181
+
+- page: [runs/hour_batch_C_nocurr_18181.md](runs/hour_batch_C_nocurr_18181.md)
+- source: [../outputs/hour_batch_C_nocurr_18181/summary.json](../outputs/hour_batch_C_nocurr_18181/summary.json)
+- full_generation_run: yes
+- robustness_mean: 38261.084
+- winner_fitness: 14400.391
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | hour_batch_C_nocurr_19191
+
+- page: [runs/hour_batch_C_nocurr_19191.md](runs/hour_batch_C_nocurr_19191.md)
+- source: [../outputs/hour_batch_C_nocurr_19191/summary.json](../outputs/hour_batch_C_nocurr_19191/summary.json)
+- full_generation_run: yes
+- robustness_mean: 37888.147
+- winner_fitness: 8040.400
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_smoke_nocurr_26001
+
+- page: [runs/autopilot_smoke_nocurr_26001.md](runs/autopilot_smoke_nocurr_26001.md)
+- source: [../outputs/autopilot_smoke_nocurr_26001/summary.json](../outputs/autopilot_smoke_nocurr_26001/summary.json)
+- full_generation_run: yes
+- robustness_mean: 33082.586
+- winner_fitness: 7276.701
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27001
+
+- page: [runs/autopilot_live_nocurr_27001.md](runs/autopilot_live_nocurr_27001.md)
+- source: [../outputs/autopilot_live_nocurr_27001/summary.json](../outputs/autopilot_live_nocurr_27001/summary.json)
+- full_generation_run: yes
+- robustness_mean: 35806.324
+- winner_fitness: 9729.236
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27002
+
+- page: [runs/autopilot_live_nocurr_27002.md](runs/autopilot_live_nocurr_27002.md)
+- source: [../outputs/autopilot_live_nocurr_27002/summary.json](../outputs/autopilot_live_nocurr_27002/summary.json)
+- full_generation_run: yes
+- robustness_mean: 36955.523
+- winner_fitness: 11049.991
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27003
+
+- page: [runs/autopilot_live_nocurr_27003.md](runs/autopilot_live_nocurr_27003.md)
+- source: [../outputs/autopilot_live_nocurr_27003/summary.json](../outputs/autopilot_live_nocurr_27003/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40673.401
+- winner_fitness: 9705.520
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27004
+
+- page: [runs/autopilot_live_nocurr_27004.md](runs/autopilot_live_nocurr_27004.md)
+- source: [../outputs/autopilot_live_nocurr_27004/summary.json](../outputs/autopilot_live_nocurr_27004/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39760.176
+- winner_fitness: 10565.119
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27005
+
+- page: [runs/autopilot_live_nocurr_27005.md](runs/autopilot_live_nocurr_27005.md)
+- source: [../outputs/autopilot_live_nocurr_27005/summary.json](../outputs/autopilot_live_nocurr_27005/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40558.991
+- winner_fitness: 10385.705
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27006
+
+- page: [runs/autopilot_live_nocurr_27006.md](runs/autopilot_live_nocurr_27006.md)
+- source: [../outputs/autopilot_live_nocurr_27006/summary.json](../outputs/autopilot_live_nocurr_27006/summary.json)
+- full_generation_run: yes
+- robustness_mean: 35415.991
+- winner_fitness: 10421.648
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27007
+
+- page: [runs/autopilot_live_nocurr_27007.md](runs/autopilot_live_nocurr_27007.md)
+- source: [../outputs/autopilot_live_nocurr_27007/summary.json](../outputs/autopilot_live_nocurr_27007/summary.json)
+- full_generation_run: yes
+- robustness_mean: 35273.026
+- winner_fitness: 13065.783
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27008
+
+- page: [runs/autopilot_live_nocurr_27008.md](runs/autopilot_live_nocurr_27008.md)
+- source: [../outputs/autopilot_live_nocurr_27008/summary.json](../outputs/autopilot_live_nocurr_27008/summary.json)
+- full_generation_run: yes
+- robustness_mean: 37238.267
+- winner_fitness: 12088.518
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27009
+
+- page: [runs/autopilot_live_nocurr_27009.md](runs/autopilot_live_nocurr_27009.md)
+- source: [../outputs/autopilot_live_nocurr_27009/summary.json](../outputs/autopilot_live_nocurr_27009/summary.json)
+- full_generation_run: yes
+- robustness_mean: 35762.712
+- winner_fitness: 8572.609
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27010
+
+- page: [runs/autopilot_live_nocurr_27010.md](runs/autopilot_live_nocurr_27010.md)
+- source: [../outputs/autopilot_live_nocurr_27010/summary.json](../outputs/autopilot_live_nocurr_27010/summary.json)
+- full_generation_run: yes
+- robustness_mean: 33066.046
+- winner_fitness: 5562.516
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27011
+
+- page: [runs/autopilot_live_nocurr_27011.md](runs/autopilot_live_nocurr_27011.md)
+- source: [../outputs/autopilot_live_nocurr_27011/summary.json](../outputs/autopilot_live_nocurr_27011/summary.json)
+- full_generation_run: yes
+- robustness_mean: 38127.642
+- winner_fitness: 7173.199
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27012
+
+- page: [runs/autopilot_live_nocurr_27012.md](runs/autopilot_live_nocurr_27012.md)
+- source: [../outputs/autopilot_live_nocurr_27012/summary.json](../outputs/autopilot_live_nocurr_27012/summary.json)
+- full_generation_run: yes
+- robustness_mean: 37345.981
+- winner_fitness: 13941.939
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27013
+
+- page: [runs/autopilot_live_nocurr_27013.md](runs/autopilot_live_nocurr_27013.md)
+- source: [../outputs/autopilot_live_nocurr_27013/summary.json](../outputs/autopilot_live_nocurr_27013/summary.json)
+- full_generation_run: yes
+- robustness_mean: 38503.865
+- winner_fitness: 19609.181
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27014
+
+- page: [runs/autopilot_live_nocurr_27014.md](runs/autopilot_live_nocurr_27014.md)
+- source: [../outputs/autopilot_live_nocurr_27014/summary.json](../outputs/autopilot_live_nocurr_27014/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40208.815
+- winner_fitness: 9889.420
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27016
+
+- page: [runs/autopilot_live_nocurr_27016.md](runs/autopilot_live_nocurr_27016.md)
+- source: [../outputs/autopilot_live_nocurr_27016/summary.json](../outputs/autopilot_live_nocurr_27016/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40719.293
+- winner_fitness: 10521.094
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27017
+
+- page: [runs/autopilot_live_nocurr_27017.md](runs/autopilot_live_nocurr_27017.md)
+- source: [../outputs/autopilot_live_nocurr_27017/summary.json](../outputs/autopilot_live_nocurr_27017/summary.json)
+- full_generation_run: yes
+- robustness_mean: 36156.753
+- winner_fitness: 15201.665
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27018
+
+- page: [runs/autopilot_live_nocurr_27018.md](runs/autopilot_live_nocurr_27018.md)
+- source: [../outputs/autopilot_live_nocurr_27018/summary.json](../outputs/autopilot_live_nocurr_27018/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40042.755
+- winner_fitness: 12130.975
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27019
+
+- page: [runs/autopilot_live_nocurr_27019.md](runs/autopilot_live_nocurr_27019.md)
+- source: [../outputs/autopilot_live_nocurr_27019/summary.json](../outputs/autopilot_live_nocurr_27019/summary.json)
+- full_generation_run: yes
+- robustness_mean: 36455.401
+- winner_fitness: 15258.672
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27021
+
+- page: [runs/autopilot_live_nocurr_27021.md](runs/autopilot_live_nocurr_27021.md)
+- source: [../outputs/autopilot_live_nocurr_27021/summary.json](../outputs/autopilot_live_nocurr_27021/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39918.934
+- winner_fitness: 12527.361
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27022
+
+- page: [runs/autopilot_live_nocurr_27022.md](runs/autopilot_live_nocurr_27022.md)
+- source: [../outputs/autopilot_live_nocurr_27022/summary.json](../outputs/autopilot_live_nocurr_27022/summary.json)
+- full_generation_run: yes
+- robustness_mean: 37715.863
+- winner_fitness: 9041.666
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27026
+
+- page: [runs/autopilot_live_nocurr_27026.md](runs/autopilot_live_nocurr_27026.md)
+- source: [../outputs/autopilot_live_nocurr_27026/summary.json](../outputs/autopilot_live_nocurr_27026/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40504.157
+- winner_fitness: 10638.751
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27027
+
+- page: [runs/autopilot_live_nocurr_27027.md](runs/autopilot_live_nocurr_27027.md)
+- source: [../outputs/autopilot_live_nocurr_27027/summary.json](../outputs/autopilot_live_nocurr_27027/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39209.256
+- winner_fitness: 17153.866
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27029
+
+- page: [runs/autopilot_live_nocurr_27029.md](runs/autopilot_live_nocurr_27029.md)
+- source: [../outputs/autopilot_live_nocurr_27029/summary.json](../outputs/autopilot_live_nocurr_27029/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41734.485
+- winner_fitness: 12471.052
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27030
+
+- page: [runs/autopilot_live_nocurr_27030.md](runs/autopilot_live_nocurr_27030.md)
+- source: [../outputs/autopilot_live_nocurr_27030/summary.json](../outputs/autopilot_live_nocurr_27030/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39774.109
+- winner_fitness: 10222.769
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27032
+
+- page: [runs/autopilot_live_nocurr_27032.md](runs/autopilot_live_nocurr_27032.md)
+- source: [../outputs/autopilot_live_nocurr_27032/summary.json](../outputs/autopilot_live_nocurr_27032/summary.json)
+- full_generation_run: yes
+- robustness_mean: 46370.700
+- winner_fitness: 12695.736
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27035
+
+- page: [runs/autopilot_live_nocurr_27035.md](runs/autopilot_live_nocurr_27035.md)
+- source: [../outputs/autopilot_live_nocurr_27035/summary.json](../outputs/autopilot_live_nocurr_27035/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39068.052
+- winner_fitness: 13065.982
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27036
+
+- page: [runs/autopilot_live_nocurr_27036.md](runs/autopilot_live_nocurr_27036.md)
+- source: [../outputs/autopilot_live_nocurr_27036/summary.json](../outputs/autopilot_live_nocurr_27036/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39034.857
+- winner_fitness: 13585.170
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27038
+
+- page: [runs/autopilot_live_nocurr_27038.md](runs/autopilot_live_nocurr_27038.md)
+- source: [../outputs/autopilot_live_nocurr_27038/summary.json](../outputs/autopilot_live_nocurr_27038/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40074.032
+- winner_fitness: 17501.288
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27039
+
+- page: [runs/autopilot_live_nocurr_27039.md](runs/autopilot_live_nocurr_27039.md)
+- source: [../outputs/autopilot_live_nocurr_27039/summary.json](../outputs/autopilot_live_nocurr_27039/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39648.430
+- winner_fitness: 10920.915
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27042
+
+- page: [runs/autopilot_live_nocurr_27042.md](runs/autopilot_live_nocurr_27042.md)
+- source: [../outputs/autopilot_live_nocurr_27042/summary.json](../outputs/autopilot_live_nocurr_27042/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40072.903
+- winner_fitness: 4770.613
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27044
+
+- page: [runs/autopilot_live_nocurr_27044.md](runs/autopilot_live_nocurr_27044.md)
+- source: [../outputs/autopilot_live_nocurr_27044/summary.json](../outputs/autopilot_live_nocurr_27044/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39281.708
+- winner_fitness: 14125.201
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27048
+
+- page: [runs/autopilot_live_nocurr_27048.md](runs/autopilot_live_nocurr_27048.md)
+- source: [../outputs/autopilot_live_nocurr_27048/summary.json](../outputs/autopilot_live_nocurr_27048/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40024.179
+- winner_fitness: 8973.930
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27049
+
+- page: [runs/autopilot_live_nocurr_27049.md](runs/autopilot_live_nocurr_27049.md)
+- source: [../outputs/autopilot_live_nocurr_27049/summary.json](../outputs/autopilot_live_nocurr_27049/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39878.720
+- winner_fitness: 11526.980
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27051
+
+- page: [runs/autopilot_live_nocurr_27051.md](runs/autopilot_live_nocurr_27051.md)
+- source: [../outputs/autopilot_live_nocurr_27051/summary.json](../outputs/autopilot_live_nocurr_27051/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39360.030
+- winner_fitness: 5719.219
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27052
+
+- page: [runs/autopilot_live_nocurr_27052.md](runs/autopilot_live_nocurr_27052.md)
+- source: [../outputs/autopilot_live_nocurr_27052/summary.json](../outputs/autopilot_live_nocurr_27052/summary.json)
+- full_generation_run: yes
+- robustness_mean: 38901.327
+- winner_fitness: 7454.417
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27054
+
+- page: [runs/autopilot_live_nocurr_27054.md](runs/autopilot_live_nocurr_27054.md)
+- source: [../outputs/autopilot_live_nocurr_27054/summary.json](../outputs/autopilot_live_nocurr_27054/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39609.465
+- winner_fitness: 10580.128
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27055
+
+- page: [runs/autopilot_live_nocurr_27055.md](runs/autopilot_live_nocurr_27055.md)
+- source: [../outputs/autopilot_live_nocurr_27055/summary.json](../outputs/autopilot_live_nocurr_27055/summary.json)
+- full_generation_run: yes
+- robustness_mean: 38933.141
+- winner_fitness: 9841.621
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27056
+
+- page: [runs/autopilot_live_nocurr_27056.md](runs/autopilot_live_nocurr_27056.md)
+- source: [../outputs/autopilot_live_nocurr_27056/summary.json](../outputs/autopilot_live_nocurr_27056/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39904.809
+- winner_fitness: 9402.018
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27061
+
+- page: [runs/autopilot_live_nocurr_27061.md](runs/autopilot_live_nocurr_27061.md)
+- source: [../outputs/autopilot_live_nocurr_27061/summary.json](../outputs/autopilot_live_nocurr_27061/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40244.384
+- winner_fitness: 12653.559
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27065
+
+- page: [runs/autopilot_live_nocurr_27065.md](runs/autopilot_live_nocurr_27065.md)
+- source: [../outputs/autopilot_live_nocurr_27065/summary.json](../outputs/autopilot_live_nocurr_27065/summary.json)
+- full_generation_run: yes
+- robustness_mean: 39415.028
+- winner_fitness: 11825.234
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27068
+
+- page: [runs/autopilot_live_nocurr_27068.md](runs/autopilot_live_nocurr_27068.md)
+- source: [../outputs/autopilot_live_nocurr_27068/summary.json](../outputs/autopilot_live_nocurr_27068/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41850.942
+- winner_fitness: 12435.393
+- curriculum_enabled: no
+
+## [2026-04-14] ingest | autopilot_live_nocurr_27072
+
+- page: [runs/autopilot_live_nocurr_27072.md](runs/autopilot_live_nocurr_27072.md)
+- source: [../outputs/autopilot_live_nocurr_27072/summary.json](../outputs/autopilot_live_nocurr_27072/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41188.705
+- winner_fitness: 11294.608
+- curriculum_enabled: no

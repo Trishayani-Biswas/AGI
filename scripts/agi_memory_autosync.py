@@ -191,6 +191,7 @@ def _sync_once(
         str(wiki_dir),
         "--report-path",
         str(wiki_dir / "lint_report.md"),
+        "--fail-on-issues",
     ]
 
     commands = [

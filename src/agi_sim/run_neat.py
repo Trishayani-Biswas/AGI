@@ -88,12 +88,14 @@ def _maybe_auto_sync_memory(outputs_dir: Path) -> None:
     if not sync_script.exists():
         return
 
+    sync_outputs_dir = _resolve_autosync_outputs_dir(outputs_dir=outputs_dir)
+
     command = [
         sys.executable,
         str(sync_script),
         "--sync-once",
         "--outputs-dir",
-        str(outputs_dir),
+        str(sync_outputs_dir),
         "--wiki-dir",
         str(repo_root / "wiki"),
     ]
@@ -103,6 +105,21 @@ def _maybe_auto_sync_memory(outputs_dir: Path) -> None:
     except OSError:
         # Training result should still be usable even if memory sync fails.
         return
+
+
+def _resolve_autosync_outputs_dir(outputs_dir: Path) -> Path:
+    resolved = outputs_dir.resolve()
+
+    # Prefer the nearest ancestor named "outputs" for full-corpus memory refresh.
+    for candidate in (resolved, *resolved.parents):
+        if candidate.name == "outputs":
+            return candidate
+
+    # Fallback: if this looks like a single NEAT run folder, use its parent.
+    if (resolved / "champion.pkl").exists() and resolved.parent.exists():
+        return resolved.parent
+
+    return resolved
 
 
 if __name__ == "__main__":
