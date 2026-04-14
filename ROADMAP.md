@@ -12,11 +12,12 @@ Mastery gate:
 - A new observer can understand the run story in under 10 minutes.
 
 Now:
-- Implemented observatory report generator with anomaly markers, policy-family tags, compact lineage timelines, campaign drift metrics, and auto hypothesis cards: `scripts/build_experiment_observatory.py`.
+- Implemented observatory report generator with anomaly markers, policy-family tags, compact lineage timelines, campaign drift metrics, auto hypothesis cards, and automatic intervention recommendations: `scripts/build_experiment_observatory.py`.
+- Implemented persistent AGI wiki memory layer (raw sources -> wiki -> schema) with automated ingest/index/log maintenance: `scripts/build_agi_wiki.py`, `wiki/`, `AGI_WIKI.md`.
 
 Next checkpoints:
 1. Add cross-run causal ablation summaries for major metric jumps.
-2. Add automatic intervention recommendations when a hypothesis fails.
+2. Add confidence intervals and effect-size summaries for each hypothesis card.
 
 ## Priority 2: Stability Over Seed Luck
 

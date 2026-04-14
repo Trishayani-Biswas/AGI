@@ -254,6 +254,33 @@ For strict apples-to-apples campaigns (recommended), include only full-generatio
 ```
 
 This writes a watch report at `outputs/experiment_observatory.md`.
+The report now includes auto hypothesis cards plus prioritized intervention recommendations when results fail or are inconclusive.
+
+### Build persistent AGI wiki memory (Karpathy LLM Wiki pattern)
+
+Authoritative reference idea file:
+- https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+
+This project now includes a local wiki layer that compiles run evidence into structured markdown pages.
+It follows the 3-layer model:
+
+- raw sources: immutable run artifacts in `outputs/`
+- wiki: maintained pages in `wiki/`
+- schema: maintenance rules in `AGI_WIKI.md`
+
+Build wiki once:
+
+```bash
+.venv/bin/python scripts/build_agi_wiki.py --outputs-dir outputs --wiki-dir wiki --max-runs 30
+```
+
+Maintain wiki in near real time while experiments are running:
+
+```bash
+.venv/bin/python scripts/build_agi_wiki.py --outputs-dir outputs --wiki-dir wiki --max-runs 30 --watch --watch-interval 20
+```
+
+The script updates run pages, concept pages, `wiki/index.md`, and append-only `wiki/log.md`.
 
 ---
 
@@ -355,7 +382,30 @@ Use the observatory report plus leaderboard together to create that experience.
 : ranked summary of all NEAT run folders found under `outputs/`.
 
 - `outputs/experiment_observatory.md`
-: watch-oriented scientific narrative (pass/fail hypotheses, family tags, lineage timelines, campaign drift metrics, anomaly markers, stability read).
+: watch-oriented scientific narrative (pass/fail hypotheses, automatic intervention recommendations, family tags, lineage timelines, campaign drift metrics, anomaly markers, stability read).
+
+## Wiki memory output
+
+- `wiki/index.md`
+: content-first wiki catalog for quick navigation.
+
+- `wiki/log.md`
+: append-only ingest/query chronology using parseable date headings.
+
+- `wiki/runs/<run_name>.md`
+: normalized per-run pages linked to raw source artifacts.
+
+- `wiki/concepts/hypotheses.md`
+: current hypothesis board extracted from observatory output.
+
+- `wiki/concepts/interventions.md`
+: prioritized intervention actions extracted from observatory output.
+
+- `wiki/concepts/campaign_state.md`
+: campaign-level summary including matched curriculum vs baseline deltas.
+
+- `AGI_WIKI.md`
+: wiki schema and maintenance contract for ingest/query/lint operations.
 
 ---
 

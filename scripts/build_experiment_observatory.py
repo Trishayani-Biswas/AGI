@@ -612,13 +612,9 @@ def _status_from_delta(delta: float, pass_threshold: float = 0.1) -> str:
     return "INCONCLUSIVE"
 
 
-def _build_hypothesis_cards(
+def _select_best_curriculum_group(
     rows: List[Dict[str, object]],
-    drift: Dict[str, object] | None,
-) -> List[Dict[str, str]]:
-    cards: List[Dict[str, str]] = []
-
-    # H1: Curriculum vs non-curriculum under comparable settings.
+) -> Tuple[Tuple[object, object, object, object] | None, List[Dict[str, object]], int]:
     comparable_groups: Dict[Tuple[object, object, object, object], List[Dict[str, object]]] = {}
     for row in rows:
         if row.get("run_completed"):
@@ -646,9 +642,22 @@ def _build_hypothesis_cards(
             best_group_rows = group_rows
             best_group_key = key
 
+    return best_group_key, best_group_rows, best_pair_count
+
+
+def _build_hypothesis_cards(
+    rows: List[Dict[str, object]],
+    drift: Dict[str, object] | None,
+) -> List[Dict[str, str]]:
+    cards: List[Dict[str, str]] = []
+
+    # H1: Curriculum vs non-curriculum under comparable settings.
+    best_group_key, best_group_rows, best_pair_count = _select_best_curriculum_group(rows)
+
     if best_pair_count == 0 or best_group_key is None:
         cards.append(
             {
+                "id": "h1_curriculum",
                 "title": "Curriculum Improves Robustness",
                 "status": "INCONCLUSIVE",
                 "evidence": "No comparable curriculum/non-curriculum run pair in the same campaign settings.",
@@ -671,6 +680,7 @@ def _build_hypothesis_cards(
         delta = 0.0 if abs(base_mean) < 1e-9 else (curr_mean - base_mean) / abs(base_mean)
         cards.append(
             {
+                "id": "h1_curriculum",
                 "title": "Curriculum Improves Robustness",
                 "status": _status_from_delta(delta, pass_threshold=0.1),
                 "evidence": (
@@ -700,6 +710,7 @@ def _build_hypothesis_cards(
         delta = 0.0 if abs(sparse_mean) < 1e-9 else (rich_mean - sparse_mean) / abs(sparse_mean)
         cards.append(
             {
+                "id": "h2_innovation",
                 "title": "Innovation-Rich Policies Outperform Innovation-Sparse Policies",
                 "status": _status_from_delta(delta, pass_threshold=0.1),
                 "evidence": (
@@ -712,6 +723,7 @@ def _build_hypothesis_cards(
     else:
         cards.append(
             {
+                "id": "h2_innovation",
                 "title": "Innovation-Rich Policies Outperform Innovation-Sparse Policies",
                 "status": "INCONCLUSIVE",
                 "evidence": "Not enough runs tagged as both innovation_rich and innovation_sparse.",
@@ -735,6 +747,7 @@ def _build_hypothesis_cards(
     if corr is None:
         cards.append(
             {
+                "id": "h3_survivorship",
                 "title": "Survivorship Correlates With Robustness",
                 "status": "INCONCLUSIVE",
                 "evidence": "Insufficient non-degenerate data for correlation.",
@@ -750,6 +763,7 @@ def _build_hypothesis_cards(
             status = "INCONCLUSIVE"
         cards.append(
             {
+                "id": "h3_survivorship",
                 "title": "Survivorship Correlates With Robustness",
                 "status": status,
                 "evidence": f"pearson_corr(mean_alive_end, robustness_mean)={corr:+.3f} across {len(alive_values)} runs.",
@@ -761,6 +775,7 @@ def _build_hypothesis_cards(
     if drift is None:
         cards.append(
             {
+                "id": "h4_drift",
                 "title": "Campaign Drift Is Productive",
                 "status": "INCONCLUSIVE",
                 "evidence": "No drift block available for this campaign.",
@@ -780,6 +795,7 @@ def _build_hypothesis_cards(
             status = "INCONCLUSIVE"
         cards.append(
             {
+                "id": "h4_drift",
                 "title": "Campaign Drift Is Productive",
                 "status": status,
                 "evidence": (
@@ -791,6 +807,95 @@ def _build_hypothesis_cards(
         )
 
     return cards
+
+
+def _build_intervention_recommendations(
+    cards: List[Dict[str, str]],
+    rows: List[Dict[str, object]],
+) -> List[str]:
+    recommendations: List[str] = []
+
+    card_by_id = {
+        str(card.get("id")): card
+        for card in cards
+        if isinstance(card.get("id"), str)
+    }
+    failed_cards = [card for card in cards if card.get("status") == "FAIL"]
+
+    if failed_cards:
+        recommendations.append(
+            "Prioritize FAIL hypotheses before increasing world difficulty, horizon, or population cap."
+        )
+
+    h1 = card_by_id.get("h1_curriculum")
+    if h1 is not None:
+        status = h1.get("status")
+        if status == "FAIL":
+            recommendations.append(
+                "Extend matched curriculum vs no-curriculum ablation by at least 6 new seeds under fixed settings."
+            )
+            _, best_group_rows, _ = _select_best_curriculum_group(rows)
+            curriculum_rows = [
+                row
+                for row in best_group_rows
+                if row.get("curriculum_enabled") is True and _safe_float(row.get("robustness_mean")) is not None
+            ]
+            ranked_curriculum = sorted(
+                curriculum_rows,
+                key=lambda row: _safe_float(row.get("robustness_mean")) or -1.0,
+            )
+            weakest_runs = [
+                str(row.get("run"))
+                for row in ranked_curriculum[:2]
+                if isinstance(row.get("run"), str)
+            ]
+            if weakest_runs:
+                recommendations.append(
+                    "Audit the weakest curriculum runs first: "
+                    f"{', '.join(weakest_runs)} "
+                    "(inspect generation_log/world_timeline for stage transitions and shock spikes)."
+                )
+        elif status == "INCONCLUSIVE":
+            recommendations.append(
+                "Increase matched seed count until both curriculum and baseline have at least 10 completed runs."
+            )
+
+    h2 = card_by_id.get("h2_innovation")
+    if h2 is not None and h2.get("status") == "FAIL":
+        recommendations.append(
+            "Run a shock-probability sweep (for example 0.02, 0.03, 0.04) and confirm innovation-rich families still outperform."
+        )
+
+    h3 = card_by_id.get("h3_survivorship")
+    if h3 is not None:
+        status = h3.get("status")
+        if status == "FAIL":
+            recommendations.append(
+                "Rebalance fitness pressure toward alive_end and compare correlation again after a fixed 6-seed campaign."
+            )
+        elif status == "INCONCLUSIVE":
+            recommendations.append(
+                "Add seeds with wider survival outcomes so survivorship-vs-robustness correlation is measurable."
+            )
+
+    h4 = card_by_id.get("h4_drift")
+    if h4 is not None:
+        status = h4.get("status")
+        if status == "FAIL":
+            recommendations.append(
+                "Freeze environment settings for one campaign cycle, then re-introduce regime changes gradually to reduce unproductive drift."
+            )
+        elif status == "INCONCLUSIVE":
+            recommendations.append(
+                "Collect another fixed-condition cohort and compare early-vs-late robust_delta before changing ecology complexity."
+            )
+
+    if not recommendations:
+        recommendations.append(
+            "No immediate intervention required; continue fixed-condition monitoring and periodic ablation checks."
+        )
+
+    return _dedupe_limit(recommendations, max_items=8)
 
 
 def _dedupe_limit(lines: List[str], max_items: int = 8) -> List[str]:
@@ -1139,6 +1244,15 @@ def build_report(outputs_dir: Path, report_path: Path) -> None:
             lines.append(f"- Evidence: {card['evidence']}")
             lines.append(f"- Next action: {card['next_action']}")
             lines.append("")
+
+        lines.append("## Automatic Intervention Recommendations")
+        lines.append("")
+        lines.append("Prioritized actions generated from current hypothesis outcomes.")
+        lines.append("")
+        interventions = _build_intervention_recommendations(cards, selection_pool)
+        for intervention in interventions:
+            lines.append(f"- {intervention}")
+        lines.append("")
 
         best = selection_pool[0]
         best_history = best.get("history") if isinstance(best.get("history"), list) else []
