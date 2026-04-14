@@ -105,3 +105,4 @@ class WorldState:
     gather_bonus_food: float = 0.0
     survival_buffer: float = 0.0
     innovations: Set[str] = field(default_factory=set)
+    dynamic_innovation_effects: Dict[str, tuple[str, float]] = field(default_factory=dict)

@@ -19,6 +19,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint-every", type=int, default=None, help="Checkpoint interval in generations")
     parser.add_argument("--output-dir", type=str, default=None, help="Where NEAT artifacts are saved")
     parser.add_argument("--config", type=str, default=None, help="Path to neat_survival.ini")
+    parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint-* file to resume from")
+    parser.add_argument("--world-difficulty", type=float, default=None, help="Higher values make environment harsher")
+    parser.add_argument("--shock-prob", type=float, default=None, help="Daily probability baseline for environmental shocks")
+    parser.add_argument("--robustness-seeds", type=int, default=None, help="Number of unseen seeds for champion robustness test")
+    parser.add_argument("--robustness-days", type=int, default=None, help="Days per unseen-seed robustness episode")
+    parser.add_argument("--robustness-founders", type=int, default=None, help="Founders used in robustness episodes")
     return parser.parse_args()
 
 
@@ -39,6 +45,16 @@ def build_config(args: argparse.Namespace) -> NeatTrainingConfig:
         cfg = replace(cfg, output_dir=Path(args.output_dir))
     if args.config is not None:
         cfg = replace(cfg, neat_config_path=Path(args.config))
+    if args.world_difficulty is not None:
+        cfg = replace(cfg, world_difficulty=args.world_difficulty)
+    if args.shock_prob is not None:
+        cfg = replace(cfg, shock_probability=args.shock_prob)
+    if args.robustness_seeds is not None:
+        cfg = replace(cfg, robustness_seeds=args.robustness_seeds)
+    if args.robustness_days is not None:
+        cfg = replace(cfg, robustness_days=args.robustness_days)
+    if args.robustness_founders is not None:
+        cfg = replace(cfg, robustness_founders=args.robustness_founders)
 
     return cfg
 
@@ -47,7 +63,8 @@ def main() -> None:
     args = parse_args()
     config = build_config(args)
     trainer = NeatSurvivalTrainer(config)
-    summary = trainer.train()
+    resume_checkpoint = Path(args.resume) if args.resume is not None else None
+    summary = trainer.train(resume_checkpoint=resume_checkpoint)
     print(json.dumps(summary, indent=2, ensure_ascii=True))
 
 

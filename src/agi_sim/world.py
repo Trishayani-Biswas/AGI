@@ -16,6 +16,14 @@ INNOVATION_EFFECTS: Dict[str, Tuple[str, float]] = {
     "preservation": ("survival_buffer", 0.07),
 }
 
+DYNAMIC_INNOVATION_TARGETS: Tuple[str, ...] = (
+    "gather_bonus_water",
+    "gather_bonus_food",
+    "shelter_tech",
+    "health_regen_bonus",
+    "survival_buffer",
+)
+
 
 def _clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
@@ -214,19 +222,34 @@ def apply_action(
 
     if action == "experiment":
         undiscovered = [name for name in INNOVATION_EFFECTS if name not in world.innovations]
-        if not undiscovered:
-            return ActionOutcome(reward=0.3, summary="no new innovation left", event_type="experiment_idle")
 
         chance = _clamp(0.03 + (agent.genome.exploration_drive * 0.2) + (agent.shelter_skill * 0.08), 0.01, 0.8)
         if rng.random() < chance:
             hint = (decision.invention_hypothesis or "").strip().lower()
-            if hint:
-                pick = sorted(undiscovered)[abs(hash(hint)) % len(undiscovered)]
+            if undiscovered:
+                if hint:
+                    pick = sorted(undiscovered)[abs(hash(hint)) % len(undiscovered)]
+                else:
+                    pick = rng.choice(undiscovered)
             else:
-                pick = rng.choice(undiscovered)
+                base = hint if hint else f"proto_{day}_{len(world.innovations)}"
+                safe = "".join(ch if ch.isalnum() else "_" for ch in base.lower())
+                safe = safe[:40] if safe else f"proto_{day}"
+                pick = f"dyn_{safe}"
+                while pick in world.innovations:
+                    pick = f"{pick}_{rng.randint(0, 9)}"
+                target_field = rng.choice(list(DYNAMIC_INNOVATION_TARGETS))
+                delta = rng.uniform(0.015, 0.06)
+                world.dynamic_innovation_effects[pick] = (target_field, delta)
+
             world.innovations.add(pick)
             agent.known_innovations.add(pick)
-            field_name, delta = INNOVATION_EFFECTS[pick]
+
+            if pick in INNOVATION_EFFECTS:
+                field_name, delta = INNOVATION_EFFECTS[pick]
+            else:
+                field_name, delta = world.dynamic_innovation_effects[pick]
+
             setattr(world, field_name, _clamp(getattr(world, field_name) + delta, 0.0, 1.5))
             return ActionOutcome(reward=8.0, summary=f"discovered innovation {pick}", event_type="experiment_success")
 
