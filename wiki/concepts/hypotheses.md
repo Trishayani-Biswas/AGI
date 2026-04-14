@@ -30,3 +30,11 @@ These are machine-evaluated research hypotheses with explicit status and next ac
 - Evidence: drift_score=0.000 (stable), robust_delta=-3446.407.
 - Next action: If inconclusive, add seeds and compare with a fixed no-curriculum ablation group.
 
+## Run Evidence
+
+- [h1_nocurr_7002](../runs/h1_nocurr_7002.md)
+- [h1_curr_7002](../runs/h1_curr_7002.md)
+- [h1_nocurr_7005](../runs/h1_nocurr_7005.md)
+- [h1_curr_7003](../runs/h1_curr_7003.md)
+- [h1_curr_7006](../runs/h1_curr_7006.md)
+

@@ -32,17 +32,36 @@ def _extract_markdown_links(markdown_text: str) -> List[str]:
     return [match.group(1) for match in _LINK_RE.finditer(markdown_text)]
 
 
+def _is_run_page_target(target_path: Path, wiki_dir: Path) -> bool:
+    runs_dir = (wiki_dir / "runs").resolve()
+    return (
+        target_path.is_file()
+        and target_path.suffix == ".md"
+        and target_path.parent.resolve() == runs_dir
+    )
+
+
 def lint_wiki(wiki_dir: Path) -> Dict[str, object]:
     markdown_files = sorted(path for path in wiki_dir.rglob("*.md") if path.is_file())
+    concepts_dir = (wiki_dir / "concepts").resolve()
+    run_pages_dir = wiki_dir / "runs"
+    all_run_pages = (
+        set(path.resolve() for path in run_pages_dir.glob("*.md") if path.is_file())
+        if run_pages_dir.exists()
+        else set()
+    )
 
     broken_links: List[Tuple[Path, str, Path]] = []
     referenced_run_pages: Set[Path] = set()
+    concept_claim_issues: List[Tuple[Path, str]] = []
 
     for md_path in markdown_files:
         try:
             text = md_path.read_text(encoding="utf-8")
         except OSError:
             continue
+
+        run_citations_in_file: Set[Path] = set()
 
         for raw_link in _extract_markdown_links(text):
             if _is_external_link(raw_link):
@@ -57,11 +76,18 @@ def lint_wiki(wiki_dir: Path) -> Dict[str, object]:
                 broken_links.append((md_path, raw_link, target_path))
                 continue
 
-            if target_path.is_file() and target_path.parent.name == "runs" and target_path.suffix == ".md":
-                referenced_run_pages.add(target_path)
+            if _is_run_page_target(target_path=target_path, wiki_dir=wiki_dir):
+                resolved = target_path.resolve()
+                referenced_run_pages.add(resolved)
+                run_citations_in_file.add(resolved)
 
-    run_pages_dir = wiki_dir / "runs"
-    all_run_pages = set(path.resolve() for path in run_pages_dir.glob("*.md") if path.is_file()) if run_pages_dir.exists() else set()
+        is_concept_page = md_path.parent.resolve() == concepts_dir
+        has_claim_bullets = any(line.strip().startswith("- ") for line in text.splitlines())
+        if is_concept_page and has_claim_bullets and all_run_pages and not run_citations_in_file:
+            concept_claim_issues.append(
+                (md_path, "Concept claims detected but no run page citation was found.")
+            )
+
     orphan_run_pages = sorted(path for path in all_run_pages if path not in referenced_run_pages)
 
     return {
@@ -69,6 +95,7 @@ def lint_wiki(wiki_dir: Path) -> Dict[str, object]:
         "markdown_files": len(markdown_files),
         "broken_links": broken_links,
         "orphan_run_pages": orphan_run_pages,
+        "concept_claim_issues": concept_claim_issues,
     }
 
 
@@ -76,6 +103,7 @@ def build_report(result: Dict[str, object], report_path: Path) -> None:
     markdown_files = int(result.get("markdown_files", 0))
     broken_links = result.get("broken_links", [])
     orphan_run_pages = result.get("orphan_run_pages", [])
+    concept_claim_issues = result.get("concept_claim_issues", [])
     wiki_dir = Path(str(result.get("wiki_dir", "wiki")))
 
     lines: List[str] = []
@@ -85,6 +113,7 @@ def build_report(result: Dict[str, object], report_path: Path) -> None:
     lines.append(f"- Markdown files scanned: {markdown_files}")
     lines.append(f"- Broken links: {len(broken_links)}")
     lines.append(f"- Orphan run pages: {len(orphan_run_pages)}")
+    lines.append(f"- Claim evidence issues: {len(concept_claim_issues)}")
     lines.append("")
 
     lines.append("## Broken Links")
@@ -117,6 +146,20 @@ def build_report(result: Dict[str, object], report_path: Path) -> None:
                 rel = path
             lines.append(f"- {Path(rel).as_posix()}")
 
+    lines.append("")
+    lines.append("## Claim Evidence Coverage")
+    lines.append("")
+    if not concept_claim_issues:
+        lines.append("All concept claim pages include at least one run citation.")
+    else:
+        for path, reason in concept_claim_issues:
+            rel = path
+            try:
+                rel = path.relative_to(wiki_dir.parent)
+            except ValueError:
+                rel = path
+            lines.append(f"- {Path(rel).as_posix()}: {reason}")
+
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -143,10 +186,12 @@ def main() -> None:
 
     broken_links = result.get("broken_links", [])
     orphan_run_pages = result.get("orphan_run_pages", [])
+    concept_claim_issues = result.get("concept_claim_issues", [])
     print(
         "Wiki lint complete: "
         f"broken_links={len(broken_links)} "
         f"orphan_run_pages={len(orphan_run_pages)} "
+        f"claim_evidence_issues={len(concept_claim_issues)} "
         f"report={report_path}"
     )
 

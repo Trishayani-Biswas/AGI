@@ -217,6 +217,64 @@ def _write_if_changed(path: Path, content: str) -> bool:
     return True
 
 
+def _safe_mtime_ns(path: Path) -> int:
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
+        return -1
+
+
+def _run_page_signature(row: RunRow, rank: int) -> str:
+    fields = [
+        str(rank),
+        row.run,
+        str(row.generations),
+        str(row.history_points),
+        str(row.run_completed),
+        _fmt_float(row.winner_fitness, digits=6),
+        _fmt_float(row.robustness_mean, digits=6),
+        _fmt_float(row.robustness_min, digits=6),
+        _fmt_float(row.robustness_max, digits=6),
+        _fmt_float(row.world_difficulty, digits=6),
+        _fmt_float(row.shock_probability, digits=6),
+        str(row.eval_days),
+        str(row.max_population),
+        str(row.curriculum_enabled),
+        str(row.run_mtime_epoch),
+        str(_safe_mtime_ns(row.summary_path)),
+        str(_safe_mtime_ns(row.robustness_path)),
+        str(_safe_mtime_ns(row.history_path)),
+    ]
+    return "|".join(fields)
+
+
+def _load_run_cache(cache_path: Path) -> Dict[str, str]:
+    if not cache_path.exists():
+        return {}
+
+    try:
+        raw = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    if not isinstance(raw, dict):
+        return {}
+
+    parsed: Dict[str, str] = {}
+    for key, value in raw.items():
+        if isinstance(key, str) and isinstance(value, str):
+            parsed[key] = value
+    return parsed
+
+
+def _write_run_cache(cache_path: Path, cache_payload: Dict[str, str]) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(
+        json.dumps(cache_payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+
 def _render_run_page(row: RunRow, rank: int, wiki_dir: Path) -> str:
     page_path = wiki_dir / "runs" / f"{row.run}.md"
     summary_rel = _relative_link(page_path, row.summary_path)
@@ -389,6 +447,31 @@ def _render_concept_page(
     return "\n".join(lines) + "\n"
 
 
+def _append_run_evidence_section(
+    page_markdown: str,
+    concept_page_path: Path,
+    evidence_rows: Sequence[RunRow],
+    max_links: int = 5,
+) -> str:
+    lines = page_markdown.rstrip().splitlines()
+    lines.append("")
+    lines.append("## Run Evidence")
+    lines.append("")
+
+    if not evidence_rows:
+        lines.append("No run pages available yet.")
+    else:
+        for row in evidence_rows[:max_links]:
+            run_page = _relative_link(
+                concept_page_path,
+                concept_page_path.parent.parent / "runs" / f"{row.run}.md",
+            )
+            lines.append(f"- [{row.run}]({run_page})")
+
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
 def _update_log(wiki_dir: Path, rows: Sequence[RunRow]) -> int:
     log_path = wiki_dir / "log.md"
     if log_path.exists():
@@ -431,18 +514,30 @@ def build_wiki(
     wiki_dir: Path,
     rows: Sequence[RunRow],
     max_runs: int,
+    run_cache_path: Path,
 ) -> Dict[str, int]:
     wiki_dir.mkdir(parents=True, exist_ok=True)
     (wiki_dir / "runs").mkdir(parents=True, exist_ok=True)
     (wiki_dir / "concepts").mkdir(parents=True, exist_ok=True)
 
     selected_rows = list(rows[:max_runs])
+    existing_run_cache = _load_run_cache(run_cache_path)
+    next_run_cache: Dict[str, str] = {}
     run_pages_written = 0
+    run_pages_skipped = 0
     for idx, row in enumerate(selected_rows, start=1):
         page_path = wiki_dir / "runs" / f"{row.run}.md"
+        signature = _run_page_signature(row=row, rank=idx)
+        next_run_cache[row.run] = signature
+        if existing_run_cache.get(row.run) == signature and page_path.exists():
+            run_pages_skipped += 1
+            continue
+
         page = _render_run_page(row, rank=idx, wiki_dir=wiki_dir)
         if _write_if_changed(page_path, page):
             run_pages_written += 1
+
+    _write_run_cache(run_cache_path, next_run_cache)
 
     observatory_path = outputs_dir / "experiment_observatory.md"
     observatory_text = None
@@ -465,6 +560,7 @@ def build_wiki(
 
     concept_writes = 0
     source_rel = _relative_link(wiki_dir / "concepts" / "hypotheses.md", observatory_path)
+    hypotheses_path = wiki_dir / "concepts" / "hypotheses.md"
     hypotheses_md = _render_concept_page(
         title="Hypothesis Board",
         source_rel=source_rel,
@@ -475,9 +571,16 @@ def build_wiki(
             "No observatory hypothesis section found yet. Build the observatory report first.",
         ],
     )
-    if _write_if_changed(wiki_dir / "concepts" / "hypotheses.md", hypotheses_md):
+    hypotheses_md = _append_run_evidence_section(
+        page_markdown=hypotheses_md,
+        concept_page_path=hypotheses_path,
+        evidence_rows=rows,
+        max_links=5,
+    )
+    if _write_if_changed(hypotheses_path, hypotheses_md):
         concept_writes += 1
 
+    interventions_path = wiki_dir / "concepts" / "interventions.md"
     interventions_md = _render_concept_page(
         title="Interventions",
         source_rel=source_rel,
@@ -488,7 +591,13 @@ def build_wiki(
             "No intervention section found yet. Build the observatory report first.",
         ],
     )
-    if _write_if_changed(wiki_dir / "concepts" / "interventions.md", interventions_md):
+    interventions_md = _append_run_evidence_section(
+        page_markdown=interventions_md,
+        concept_page_path=interventions_path,
+        evidence_rows=rows,
+        max_links=5,
+    )
+    if _write_if_changed(interventions_path, interventions_md):
         concept_writes += 1
 
     campaign_state_md = _render_campaign_state(rows=rows, wiki_dir=wiki_dir)
@@ -502,9 +611,11 @@ def build_wiki(
 
     return {
         "run_pages_written": run_pages_written,
+        "run_pages_skipped": run_pages_skipped,
         "concept_pages_written": concept_writes,
         "index_written": index_written,
         "log_entries_added": log_entries_added,
+        "run_cache_entries": len(next_run_cache),
         "runs_considered": len(selected_rows),
         "runs_total": len(rows),
     }
@@ -530,6 +641,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--watch", action="store_true", help="Continuously rebuild wiki when outputs change")
     parser.add_argument(
+        "--run-cache-file",
+        type=str,
+        default=".agi_wiki_run_cache.json",
+        help="Path to incremental run-page cache used to skip unchanged run markdown regeneration",
+    )
+    parser.add_argument(
         "--watch-interval",
         type=float,
         default=20.0,
@@ -541,14 +658,23 @@ def parse_args() -> argparse.Namespace:
 def _run_once(args: argparse.Namespace) -> str:
     outputs_dir = Path(args.outputs_dir)
     wiki_dir = Path(args.wiki_dir)
+    run_cache_path = Path(args.run_cache_file)
     rows = collect_neat_runs(outputs_dir, require_full_generations=args.require_full_generations)
-    stats = build_wiki(outputs_dir=outputs_dir, wiki_dir=wiki_dir, rows=rows, max_runs=args.max_runs)
+    stats = build_wiki(
+        outputs_dir=outputs_dir,
+        wiki_dir=wiki_dir,
+        rows=rows,
+        max_runs=args.max_runs,
+        run_cache_path=run_cache_path,
+    )
     return (
         "Wiki updated: "
         f"runs_written={stats['run_pages_written']} "
+        f"runs_skipped={stats['run_pages_skipped']} "
         f"concepts_written={stats['concept_pages_written']} "
         f"index_written={stats['index_written']} "
         f"log_entries_added={stats['log_entries_added']} "
+        f"cache_entries={stats['run_cache_entries']} "
         f"runs_considered={stats['runs_considered']} "
         f"runs_total={stats['runs_total']}"
     )
@@ -573,13 +699,16 @@ def main() -> None:
                     wiki_dir=Path(args.wiki_dir),
                     rows=rows,
                     max_runs=args.max_runs,
+                    run_cache_path=Path(args.run_cache_file),
                 )
                 print(
                     "Wiki updated: "
                     f"runs_written={stats['run_pages_written']} "
+                    f"runs_skipped={stats['run_pages_skipped']} "
                     f"concepts_written={stats['concept_pages_written']} "
                     f"index_written={stats['index_written']} "
                     f"log_entries_added={stats['log_entries_added']} "
+                    f"cache_entries={stats['run_cache_entries']} "
                     f"runs_considered={stats['runs_considered']} "
                     f"runs_total={stats['runs_total']}"
                 )

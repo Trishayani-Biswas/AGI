@@ -17,6 +17,7 @@ __pycache__/
 outputs/
 .agi_memory_state.json
 .agi_memory_sync.lock
+.agi_wiki_run_cache.json
 .env
 .env.*
 !.env.example

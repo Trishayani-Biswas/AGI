@@ -274,6 +274,18 @@ Build wiki once:
 .venv/bin/python scripts/build_agi_wiki.py --outputs-dir outputs --wiki-dir wiki --max-runs 30
 ```
 
+The builder now uses incremental ingest caching for run pages by default.
+Unchanged runs are detected from source signatures and skipped instead of being fully regenerated.
+
+Default cache file:
+- `.agi_wiki_run_cache.json`
+
+Override cache path if needed:
+
+```bash
+.venv/bin/python scripts/build_agi_wiki.py --outputs-dir outputs --wiki-dir wiki --max-runs 30 --run-cache-file .agi_wiki_run_cache.json
+```
+
 Maintain wiki in near real time while experiments are running:
 
 ```bash
@@ -281,6 +293,17 @@ Maintain wiki in near real time while experiments are running:
 ```
 
 The script updates run pages, concept pages, `wiki/index.md`, and append-only `wiki/log.md`.
+
+Lint wiki integrity plus claim-evidence coverage:
+
+```bash
+.venv/bin/python scripts/lint_agi_wiki.py --wiki-dir wiki --report-path wiki/lint_report.md
+```
+
+The lint report now checks:
+- broken links
+- orphan run pages
+- concept claim pages that do not cite at least one `wiki/runs/*.md` page
 
 ### Fully automatic memory sync pipeline
 
@@ -320,6 +343,19 @@ Search the wiki library quickly:
 
 ```bash
 .venv/bin/python scripts/query_agi_wiki.py "curriculum robustness fail" --wiki-dir wiki --top-k 8
+```
+
+Tiny retrieval API endpoint (for agents/tools):
+
+```bash
+.venv/bin/python scripts/wiki_query_api.py --wiki-dir wiki --host 127.0.0.1 --port 8765
+```
+
+Example API calls:
+
+```bash
+curl -s "http://127.0.0.1:8765/query?q=curriculum%20robustness%20fail&top_k=5" | jq
+curl -s -X POST "http://127.0.0.1:8765/query" -H "Content-Type: application/json" -d '{"query":"interventions", "top_k":3}' | jq
 ```
 
 ---
