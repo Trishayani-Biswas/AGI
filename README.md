@@ -9,6 +9,24 @@ It supports two complementary modes:
 
 The long-term objective is not chatbot imitation. It is emergent adaptive behavior from consequence, selection, and inheritance.
 
+This project is structured as a scientific program, not just a simulator: each run should produce evidence that can be observed, compared, and challenged.
+
+---
+
+## Bold Roadmap (Mastery-First)
+
+The roadmap is explicit and mastery-gated in `ROADMAP.md`.
+
+Top priorities:
+
+- **Observability first**: make every run watchable and explainable.
+- **Stability over luck**: prove behavior across many seeds, not one champion.
+- **Open-ended ecology**: increase environmental diversity after stability improves.
+- **Competitive pressure**: add leagues/tournaments after ecological depth exists.
+- **Falsifiable claims**: every stage must include pass/fail hypotheses.
+
+Current active focus: Observability and Stability.
+
 ---
 
 ## Reality Check (Important)
@@ -80,6 +98,9 @@ That is the purpose of the Stage 2 NEAT pipeline in this repo.
 
 - `run_neat_training.py`
 : root launcher for NEAT mode.
+
+- `scripts/build_experiment_observatory.py`
+: generates a watch-oriented scientific report from output artifacts.
 
 - `configs/neat_survival.ini`
 : NEAT topology/mutation configuration.
@@ -172,6 +193,33 @@ python3 run_simulation.py --days 2500 --population 12 --proposer-model llama3.2:
 
 This writes a leaderboard at `outputs/neat_comparison_report.md`.
 
+For strict apples-to-apples campaigns (recommended), include only full-generation runs:
+
+```bash
+.venv/bin/python scripts/compare_neat_runs.py --require-full-generations
+```
+
+### Build science observatory report
+
+```bash
+.venv/bin/python scripts/build_experiment_observatory.py
+```
+
+This writes a watch report at `outputs/experiment_observatory.md`.
+
+---
+
+## What Viewers Should See
+
+When someone watches this project, they should be able to answer:
+
+- What was tested in this run?
+- Which conditions were fixed (difficulty, shocks, seed, horizon)?
+- Where did adaptation improve or fail?
+- Is performance robust on unseen seeds?
+
+Use the observatory report plus leaderboard together to create that experience.
+
 ---
 
 ## Stage 2 Trainer Arguments
@@ -249,6 +297,9 @@ This writes a leaderboard at `outputs/neat_comparison_report.md`.
 - `outputs/neat_comparison_report.md`
 : ranked summary of all NEAT run folders found under `outputs/`.
 
+- `outputs/experiment_observatory.md`
+: watch-oriented scientific narrative (hypotheses, signals, turning points, stability read).
+
 ---
 
 ## What Stage 2 Added Internally
@@ -314,6 +365,7 @@ After training, the champion is tested across unseen seeds and aggregated:
 - Trainer seed is configurable with `--seed`.
 - Each robustness episode uses deterministic derived seeds.
 - `used_neat_config.ini` is copied per run for exact replay.
+- NEAT early-stop is disabled (`no_fitness_termination = True`) so fixed-generation campaigns stay comparable across seeds.
 
 ---
 

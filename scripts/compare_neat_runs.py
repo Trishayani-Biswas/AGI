@@ -19,7 +19,7 @@ def _fmt_float(value: object) -> str:
     return "n/a"
 
 
-def collect_runs(outputs_dir: Path) -> List[Dict[str, object]]:
+def collect_runs(outputs_dir: Path, require_full_generations: bool = False) -> List[Dict[str, object]]:
     rows: List[Dict[str, object]] = []
     if not outputs_dir.exists():
         return rows
@@ -40,11 +40,24 @@ def collect_runs(outputs_dir: Path) -> List[Dict[str, object]]:
             continue
 
         robustness = _load_json(child / "robustness.json") or {}
+        generations = summary.get("generations")
+        history_points = summary.get("history_points")
+        run_completed = (
+            isinstance(generations, int)
+            and isinstance(history_points, int)
+            and history_points >= generations
+        )
+
+        if require_full_generations and not run_completed:
+            continue
+
         rows.append(
             {
                 "run": child.name,
                 "winner_fitness": summary.get("winner_fitness"),
-                "generations": summary.get("generations"),
+                "generations": generations,
+                "history_points": history_points,
+                "run_completed": run_completed,
                 "eval_days": summary.get("eval_days"),
                 "world_difficulty": summary.get("world_difficulty"),
                 "shock_probability": summary.get("shock_probability"),
@@ -59,6 +72,7 @@ def collect_runs(outputs_dir: Path) -> List[Dict[str, object]]:
 
     rows.sort(
         key=lambda row: (
+            1 if row.get("run_completed") else 0,
             float(row["robustness_mean_score"]) if isinstance(row["robustness_mean_score"], (int, float)) else float("-inf"),
             float(row["winner_fitness"]) if isinstance(row["winner_fitness"], (int, float)) else float("-inf"),
         ),
@@ -67,26 +81,43 @@ def collect_runs(outputs_dir: Path) -> List[Dict[str, object]]:
     return rows
 
 
-def write_markdown_report(rows: List[Dict[str, object]], report_path: Path) -> None:
+def write_markdown_report(
+    rows: List[Dict[str, object]],
+    report_path: Path,
+    require_full_generations: bool = False,
+) -> None:
     report_path.parent.mkdir(parents=True, exist_ok=True)
 
     lines: List[str] = []
     lines.append("# NEAT Run Comparison")
     lines.append("")
 
+    if require_full_generations:
+        lines.append("Filter: full-generation runs only (`history_points >= generations`).")
+        lines.append("")
+
     if not rows:
         lines.append("No NEAT runs found.")
         report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return
 
-    lines.append("| Rank | Run | Winner Fitness | Robust Mean | Robust Min | Robust Max | Mean Alive End | Mean Innovations | Difficulty | Shock Prob |")
-    lines.append("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+    lines.append("| Rank | Run | Hist/Gen | Complete | Winner Fitness | Robust Mean | Robust Min | Robust Max | Mean Alive End | Mean Innovations | Difficulty | Shock Prob |")
+    lines.append("| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
 
     for idx, row in enumerate(rows, start=1):
+        generations = row.get("generations")
+        history_points = row.get("history_points")
+        hist_gen = "n/a"
+        if isinstance(history_points, int) and isinstance(generations, int):
+            hist_gen = f"{history_points}/{generations}"
+        complete = "yes" if row.get("run_completed") else "no"
+
         lines.append(
             "| "
             f"{idx} | "
             f"{row['run']} | "
+            f"{hist_gen} | "
+            f"{complete} | "
             f"{_fmt_float(row['winner_fitness'])} | "
             f"{_fmt_float(row['robustness_mean_score'])} | "
             f"{_fmt_float(row['robustness_min_score'])} | "
@@ -114,6 +145,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Compare NEAT training runs and build a leaderboard report")
     parser.add_argument("--outputs-dir", type=str, default="outputs", help="Directory containing run folders")
     parser.add_argument(
+        "--require-full-generations",
+        action="store_true",
+        help="Only include runs where history_points >= generations",
+    )
+    parser.add_argument(
         "--report-path",
         type=str,
         default="outputs/neat_comparison_report.md",
@@ -124,8 +160,15 @@ def main() -> None:
     outputs_dir = Path(args.outputs_dir)
     report_path = Path(args.report_path)
 
-    rows = collect_runs(outputs_dir)
-    write_markdown_report(rows, report_path)
+    rows = collect_runs(
+        outputs_dir,
+        require_full_generations=args.require_full_generations,
+    )
+    write_markdown_report(
+        rows,
+        report_path,
+        require_full_generations=args.require_full_generations,
+    )
     print(f"Compared {len(rows)} run(s). Report: {report_path}")
 
 
