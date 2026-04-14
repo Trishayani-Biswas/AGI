@@ -11,6 +11,21 @@ The long-term objective is not chatbot imitation. It is emergent adaptive behavi
 
 This project is structured as a scientific program, not just a simulator: each run should produce evidence that can be observed, compared, and challenged.
 
+## Collaboration Defaults (Hard-Coded)
+
+- Update README when significant user-visible progress is made.
+- Keep explanations simple: what changed, why it improved, or why it got worse.
+- Automatically propose the next best stage after each major result.
+
+## Done Checklist (After Major Implementation)
+
+Use this short checklist before closing any major implementation:
+
+- [ ] Feature, fix, or experiment objective is implemented and verified.
+- [ ] README is updated if progress is significant and user-visible.
+- [ ] Outcome is explained simply: what changed and what improved or got worse.
+- [ ] Next best stage is proposed as concrete follow-up actions.
+
 ---
 
 ## Bold Roadmap (Mastery-First)
@@ -340,7 +355,7 @@ Use the observatory report plus leaderboard together to create that experience.
 : ranked summary of all NEAT run folders found under `outputs/`.
 
 - `outputs/experiment_observatory.md`
-: watch-oriented scientific narrative (hypotheses, family tags, lineage timelines, campaign drift metrics, anomaly markers, stability read).
+: watch-oriented scientific narrative (pass/fail hypotheses, family tags, lineage timelines, campaign drift metrics, anomaly markers, stability read).
 
 ---
 

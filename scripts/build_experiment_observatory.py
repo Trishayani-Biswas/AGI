@@ -175,6 +175,9 @@ def _collect_neat_runs(outputs_dir: Path) -> List[Dict[str, object]]:
                 "summary": summary,
                 "history": history_rows,
                 "robustness": robustness_obj,
+                "curriculum_enabled": summary.get("curriculum_enabled")
+                if isinstance(summary.get("curriculum_enabled"), bool)
+                else None,
                 "history_points": summary.get("history_points"),
                 "generations": summary.get("generations"),
                 "run_completed": (
@@ -587,6 +590,209 @@ def _compute_lineage_cluster_drift(rows: List[Dict[str, object]]) -> Dict[str, o
     }
 
 
+def _pearson_correlation(x_values: List[float], y_values: List[float]) -> float | None:
+    if len(x_values) != len(y_values) or len(x_values) < 2:
+        return None
+
+    mean_x = mean(x_values)
+    mean_y = mean(y_values)
+    cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(x_values, y_values))
+    var_x = sum((x - mean_x) ** 2 for x in x_values)
+    var_y = sum((y - mean_y) ** 2 for y in y_values)
+    if var_x <= 1e-12 or var_y <= 1e-12:
+        return None
+    return cov / ((var_x * var_y) ** 0.5)
+
+
+def _status_from_delta(delta: float, pass_threshold: float = 0.1) -> str:
+    if delta >= pass_threshold:
+        return "PASS"
+    if delta <= -pass_threshold:
+        return "FAIL"
+    return "INCONCLUSIVE"
+
+
+def _build_hypothesis_cards(
+    rows: List[Dict[str, object]],
+    drift: Dict[str, object] | None,
+) -> List[Dict[str, str]]:
+    cards: List[Dict[str, str]] = []
+
+    # H1: Curriculum vs non-curriculum under comparable settings.
+    comparable_groups: Dict[Tuple[object, object, object, object], List[Dict[str, object]]] = {}
+    for row in rows:
+        if row.get("run_completed"):
+            comparable_groups.setdefault(_group_key(row), []).append(row)
+
+    best_group_rows: List[Dict[str, object]] = []
+    best_group_key: Tuple[object, object, object, object] | None = None
+    best_pair_count = 0
+    for key, group_rows in comparable_groups.items():
+        curriculum_vals = [
+            _safe_float(row.get("robustness_mean"))
+            for row in group_rows
+            if row.get("curriculum_enabled") is True
+        ]
+        baseline_vals = [
+            _safe_float(row.get("robustness_mean"))
+            for row in group_rows
+            if row.get("curriculum_enabled") is False
+        ]
+        curriculum_clean = [value for value in curriculum_vals if value is not None]
+        baseline_clean = [value for value in baseline_vals if value is not None]
+        pair_count = min(len(curriculum_clean), len(baseline_clean))
+        if pair_count > best_pair_count:
+            best_pair_count = pair_count
+            best_group_rows = group_rows
+            best_group_key = key
+
+    if best_pair_count == 0 or best_group_key is None:
+        cards.append(
+            {
+                "title": "Curriculum Improves Robustness",
+                "status": "INCONCLUSIVE",
+                "evidence": "No comparable curriculum/non-curriculum run pair in the same campaign settings.",
+                "next_action": "Run one baseline and one curriculum run with identical settings and different seeds.",
+            }
+        )
+    else:
+        curriculum_clean = [
+            float(row.get("robustness_mean"))
+            for row in best_group_rows
+            if row.get("curriculum_enabled") is True and isinstance(row.get("robustness_mean"), float)
+        ]
+        baseline_clean = [
+            float(row.get("robustness_mean"))
+            for row in best_group_rows
+            if row.get("curriculum_enabled") is False and isinstance(row.get("robustness_mean"), float)
+        ]
+        curr_mean = mean(curriculum_clean)
+        base_mean = mean(baseline_clean)
+        delta = 0.0 if abs(base_mean) < 1e-9 else (curr_mean - base_mean) / abs(base_mean)
+        cards.append(
+            {
+                "title": "Curriculum Improves Robustness",
+                "status": _status_from_delta(delta, pass_threshold=0.1),
+                "evidence": (
+                    f"Scope={_group_key_label(best_group_key)}; "
+                    f"curriculum_mean={curr_mean:.3f}, baseline_mean={base_mean:.3f}, delta={delta * 100.0:+.1f}%."
+                ),
+                "next_action": "Increase seed count in both groups to reduce variance before finalizing.",
+            }
+        )
+
+    # H2: Innovation-rich families outperform innovation-sparse families.
+    rich_values: List[float] = []
+    sparse_values: List[float] = []
+    for row in rows:
+        robust = _safe_float(row.get("robustness_mean"))
+        if robust is None:
+            continue
+        tags = _infer_policy_family_tags(row)
+        if "innovation_rich" in tags:
+            rich_values.append(robust)
+        if "innovation_sparse" in tags:
+            sparse_values.append(robust)
+
+    if rich_values and sparse_values:
+        rich_mean = mean(rich_values)
+        sparse_mean = mean(sparse_values)
+        delta = 0.0 if abs(sparse_mean) < 1e-9 else (rich_mean - sparse_mean) / abs(sparse_mean)
+        cards.append(
+            {
+                "title": "Innovation-Rich Policies Outperform Innovation-Sparse Policies",
+                "status": _status_from_delta(delta, pass_threshold=0.1),
+                "evidence": (
+                    f"innovation_rich_mean={rich_mean:.3f}, innovation_sparse_mean={sparse_mean:.3f}, "
+                    f"delta={delta * 100.0:+.1f}%."
+                ),
+                "next_action": "Check if innovation gains persist when shock probability is increased.",
+            }
+        )
+    else:
+        cards.append(
+            {
+                "title": "Innovation-Rich Policies Outperform Innovation-Sparse Policies",
+                "status": "INCONCLUSIVE",
+                "evidence": "Not enough runs tagged as both innovation_rich and innovation_sparse.",
+                "next_action": "Run more seeds until both families are represented with robustness metrics.",
+            }
+        )
+
+    # H3: Higher survivorship predicts stronger robustness.
+    alive_values: List[float] = []
+    robust_values: List[float] = []
+    for row in rows:
+        robustness_obj = row.get("robustness") if isinstance(row.get("robustness"), dict) else {}
+        mean_alive = _safe_float(robustness_obj.get("mean_alive_end"))
+        robust = _safe_float(row.get("robustness_mean"))
+        if mean_alive is None or robust is None:
+            continue
+        alive_values.append(mean_alive)
+        robust_values.append(robust)
+
+    corr = _pearson_correlation(alive_values, robust_values)
+    if corr is None:
+        cards.append(
+            {
+                "title": "Survivorship Correlates With Robustness",
+                "status": "INCONCLUSIVE",
+                "evidence": "Insufficient non-degenerate data for correlation.",
+                "next_action": "Collect more runs with varied mean_alive_end values.",
+            }
+        )
+    else:
+        if corr >= 0.35:
+            status = "PASS"
+        elif corr <= -0.15:
+            status = "FAIL"
+        else:
+            status = "INCONCLUSIVE"
+        cards.append(
+            {
+                "title": "Survivorship Correlates With Robustness",
+                "status": status,
+                "evidence": f"pearson_corr(mean_alive_end, robustness_mean)={corr:+.3f} across {len(alive_values)} runs.",
+                "next_action": "Use this signal to tune fitness weighting for alive_end vs innovation pressure.",
+            }
+        )
+
+    # H4: Drift and robustness should improve together.
+    if drift is None:
+        cards.append(
+            {
+                "title": "Campaign Drift Is Productive",
+                "status": "INCONCLUSIVE",
+                "evidence": "No drift block available for this campaign.",
+                "next_action": "Ensure at least four completed comparable runs for drift analysis.",
+            }
+        )
+    else:
+        drift_score = _safe_float(drift.get("drift_score"))
+        robust_delta = _safe_float(drift.get("robust_delta"))
+        if drift_score is None or robust_delta is None:
+            status = "INCONCLUSIVE"
+        elif drift_score <= 0.6 and robust_delta > 0:
+            status = "PASS"
+        elif drift_score > 0.8 and robust_delta <= 0:
+            status = "FAIL"
+        else:
+            status = "INCONCLUSIVE"
+        cards.append(
+            {
+                "title": "Campaign Drift Is Productive",
+                "status": status,
+                "evidence": (
+                    f"drift_score={_fmt_float(drift_score)} ({drift.get('drift_label', 'n/a')}), "
+                    f"robust_delta={_fmt_float(robust_delta)}."
+                ),
+                "next_action": "If inconclusive, add seeds and compare with a fixed no-curriculum ablation group.",
+            }
+        )
+
+    return cards
+
+
 def _dedupe_limit(lines: List[str], max_items: int = 8) -> List[str]:
     out: List[str] = []
     seen = set()
@@ -919,6 +1125,19 @@ def build_report(outputs_dir: Path, report_path: Path) -> None:
                 lines.append("Run-order cluster trace:")
                 lines.append("")
                 lines.append(f"`{' -> '.join(trace_items[:10])}`")
+            lines.append("")
+
+        lines.append("## Hypothesis Cards (Auto-Evaluated)")
+        lines.append("")
+        lines.append("These are machine-evaluated research hypotheses with explicit status and next action.")
+        lines.append("")
+        cards = _build_hypothesis_cards(selection_pool, drift)
+        for idx, card in enumerate(cards, start=1):
+            lines.append(f"### H{idx}: {card['title']}")
+            lines.append("")
+            lines.append(f"- Status: {card['status']}")
+            lines.append(f"- Evidence: {card['evidence']}")
+            lines.append(f"- Next action: {card['next_action']}")
             lines.append("")
 
         best = selection_pool[0]

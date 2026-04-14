@@ -12,11 +12,11 @@ Mastery gate:
 - A new observer can understand the run story in under 10 minutes.
 
 Now:
-- Implemented observatory report generator with anomaly markers, policy-family tags, compact lineage timelines, and campaign drift metrics: `scripts/build_experiment_observatory.py`.
+- Implemented observatory report generator with anomaly markers, policy-family tags, compact lineage timelines, campaign drift metrics, and auto hypothesis cards: `scripts/build_experiment_observatory.py`.
 
 Next checkpoints:
-1. Add automatic hypothesis cards per run and pass/fail outcomes.
-2. Add cross-run causal ablation summaries for major metric jumps.
+1. Add cross-run causal ablation summaries for major metric jumps.
+2. Add automatic intervention recommendations when a hypothesis fails.
 
 ## Priority 2: Stability Over Seed Luck
 
@@ -70,9 +70,26 @@ Next checkpoints:
 1. Hypothesis template for each run batch.
 2. Causal ablation tests on environment and reward terms.
 
+## Priority 6: Communication Quality
+
+Why it matters:
+- Strong technical progress still fails if outcomes are hard to understand and hard to act on.
+
+Mastery gate:
+- Every major implementation closes with a clear done checklist and plain-language outcome summary.
+- Significant user-visible progress consistently updates README.
+- Every major result includes explicit next-stage brainstorming.
+
+Now:
+- Collaboration defaults are hard-coded in workspace instructions and README.
+
+Next checkpoints:
+1. Add lightweight response-time guardrails so the 3-rule format is reinforced per prompt.
+2. Track communication-checklist pass rate at each roadmap milestone.
+
 ## Current Implementation Focus
 
-Current active focus is Priority 1 then Priority 2.
+Current active focus is Priority 1 then Priority 2, with Priority 6 enforced continuously.
 
 Execution rhythm:
 1. Improve observability tooling.

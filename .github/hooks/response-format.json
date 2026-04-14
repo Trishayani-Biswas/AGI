@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "./scripts/hooks/enforce_response_format.sh",
+        "timeout": 5
+      }
+    ]
+  }
+}
