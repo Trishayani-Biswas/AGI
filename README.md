@@ -384,6 +384,26 @@ Run continuous unattended autopilot (keeps launching runs until budget expires):
 .venv/bin/python scripts/agi_goal_autopilot.py --budget-minutes 60
 ```
 
+Autopilot now runs in adaptive self-improvement mode:
+
+- selects profile variants (`nocurr_base`, `curr_base`, `nocurr_hard`, `curr_hard`) using reward-guided exploration
+- carries forward the incumbent checkpoint to exploit proven survivors
+- scores runs with both robustness mean and robustness minimum (not mean-only luck spikes)
+
+Run a strict 20-minute development push:
+
+```bash
+.venv/bin/python scripts/agi_goal_autopilot.py \
+  --budget-minutes 20 \
+  --run-tag autopilot_20m_dev \
+  --curriculum-every 0 \
+  --refresh-every 10 \
+  --resume-prob 0.8 \
+  --explore-c 2000 \
+  --min-score-floor 30000 \
+  --reward-min-weight 0.4
+```
+
 Optional knobs for unattended mode:
 
 ```bash

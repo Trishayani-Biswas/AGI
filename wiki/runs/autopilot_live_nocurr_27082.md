@@ -1,11 +1,11 @@
-# Run: autopilot_live_nocurr_27049
+# Run: autopilot_live_nocurr_27082
 
 ## Snapshot
 
 - Rank by robustness: 40
 - Completed full generations: yes (40/40)
-- Winner fitness: 11526.980
-- Robustness mean/min/max: 39878.720 / 39194.263 / 40946.190
+- Winner fitness: 9774.814
+- Robustness mean/min/max: 39847.513 / 39398.276 / 40169.539
 - World difficulty: 1.450
 - Shock probability: 0.020
 - Eval days: 900
@@ -14,9 +14,9 @@
 
 ## Raw Source Artifacts
 
-- [summary.json](../../outputs/autopilot_live_nocurr_27049/summary.json)
-- [robustness.json](../../outputs/autopilot_live_nocurr_27049/robustness.json)
-- [history.json](../../outputs/autopilot_live_nocurr_27049/history.json)
+- [summary.json](../../outputs/autopilot_live_nocurr_27082/summary.json)
+- [robustness.json](../../outputs/autopilot_live_nocurr_27082/robustness.json)
+- [history.json](../../outputs/autopilot_live_nocurr_27082/history.json)
 
 ## Interpretation
 
