@@ -12,11 +12,11 @@ Mastery gate:
 - A new observer can understand the run story in under 10 minutes.
 
 Now:
-- Implemented observatory report generator: `scripts/build_experiment_observatory.py`.
+- Implemented observatory report generator with anomaly markers, policy-family tags, compact lineage timelines, and campaign drift metrics: `scripts/build_experiment_observatory.py`.
 
 Next checkpoints:
-1. Add day-level anomaly markers (resource crashes, extinction cascades).
-2. Add policy-family tagging to show lineage clusters.
+1. Add automatic hypothesis cards per run and pass/fail outcomes.
+2. Add cross-run causal ablation summaries for major metric jumps.
 
 ## Priority 2: Stability Over Seed Luck
 

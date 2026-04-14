@@ -298,7 +298,7 @@ Use the observatory report plus leaderboard together to create that experience.
 : ranked summary of all NEAT run folders found under `outputs/`.
 
 - `outputs/experiment_observatory.md`
-: watch-oriented scientific narrative (hypotheses, signals, turning points, stability read).
+: watch-oriented scientific narrative (hypotheses, family tags, lineage timelines, campaign drift metrics, anomaly markers, stability read).
 
 ---
 
