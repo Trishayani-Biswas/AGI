@@ -40,6 +40,7 @@ class NeatTrainingConfig:
     robustness_seeds: int = 6
     robustness_days: int = 520
     robustness_founders: int = 26
+    curriculum_enabled: bool = False
 
 
 class NeatSurvivalTrainer:
@@ -51,6 +52,8 @@ class NeatSurvivalTrainer:
         self.bio = base_sim.bio
         self._generation_index = 0
         self.history: List[Dict[str, object]] = []
+        self._generation_log_path: Path | None = None
+        self._world_timeline_path: Path | None = None
 
     def train(self, resume_checkpoint: Path | None = None) -> Dict[str, object]:
         if neat is None:
@@ -64,6 +67,15 @@ class NeatSurvivalTrainer:
 
         cfg.output_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(cfg.neat_config_path, cfg.output_dir / "used_neat_config.ini")
+
+        self._generation_log_path = cfg.output_dir / "generation_log.jsonl"
+        self._world_timeline_path = cfg.output_dir / "world_timeline.jsonl"
+        if resume_checkpoint is None:
+            self._generation_log_path.write_text("", encoding="utf-8")
+            self._world_timeline_path.write_text("", encoding="utf-8")
+        else:
+            self._generation_log_path.touch(exist_ok=True)
+            self._world_timeline_path.touch(exist_ok=True)
 
         neat_config = neat.Config(
             neat.DefaultGenome,
@@ -120,6 +132,7 @@ class NeatSurvivalTrainer:
             "max_population": cfg.max_population,
             "world_difficulty": cfg.world_difficulty,
             "shock_probability": cfg.shock_probability,
+            "curriculum_enabled": cfg.curriculum_enabled,
             "resumed_from": str(resume_checkpoint) if resume_checkpoint is not None else None,
             "winner_fitness": float(winner.fitness if winner.fitness is not None else 0.0),
             "history_points": len(self.history),
@@ -128,6 +141,8 @@ class NeatSurvivalTrainer:
             "robustness_max_score": robustness.get("max_score", 0.0),
             "champion_path": str(champion_path),
             "history_path": str(history_path),
+            "generation_log_path": str(self._generation_log_path),
+            "world_timeline_path": str(self._world_timeline_path),
             "robustness_path": str(robustness_path),
             "config_used_path": str(cfg.output_dir / "used_neat_config.ini"),
         }
@@ -180,11 +195,16 @@ class NeatSurvivalTrainer:
         for day in range(1, cfg.eval_days + 1):
             world.day = day
             advance_world(world, rng)
-            shock = self._apply_stage2_environment(world=world, day=day, rng=rng)
+            shock = self._apply_stage2_environment(
+                world=world,
+                day=day,
+                rng=rng,
+                total_days=cfg.eval_days,
+            )
             if shock is not None:
                 shock_days += 1
 
-            next_agent_id, _ = self._handle_births(
+            next_agent_id, births_today = self._handle_births(
                 agents=agents,
                 policy_by_agent=policy_by_agent,
                 culture_by_policy=culture_by_policy,
@@ -194,6 +214,9 @@ class NeatSurvivalTrainer:
                 rng=rng,
                 founder_policy_ids=founder_policy_ids,
             )
+
+            deaths_today = 0
+            innovation_events_today = 0
 
             active_ids = [agent.id for agent in agents.values() if agent.alive]
             for agent_id in active_ids:
@@ -207,6 +230,7 @@ class NeatSurvivalTrainer:
                 if self._pre_action_death(agent):
                     agent.alive = False
                     fitness_by_policy[policy_id] -= 14.0
+                    deaths_today += 1
                     continue
 
                 action = self._select_action(
@@ -242,6 +266,7 @@ class NeatSurvivalTrainer:
                     fitness_by_policy[policy_id] += 8.0
                 elif outcome.event_type == "experiment_success":
                     fitness_by_policy[policy_id] += 13.5
+                    innovation_events_today += 1
                 elif outcome.event_type == "cooperate_share":
                     fitness_by_policy[policy_id] += 2.0
 
@@ -251,6 +276,33 @@ class NeatSurvivalTrainer:
                 if self._post_action_death(agent, rng):
                     agent.alive = False
                     fitness_by_policy[policy_id] -= 16.0
+                    deaths_today += 1
+
+            alive_agents = [agent for agent in agents.values() if agent.alive]
+            mean_health = (
+                sum(agent.health for agent in alive_agents) / len(alive_agents)
+                if alive_agents
+                else 0.0
+            )
+            self._append_world_timeline(
+                {
+                    "generation": self._generation_index,
+                    "day": day,
+                    "curriculum_stage": self._curriculum_stage(day=day, total_days=cfg.eval_days),
+                    "shock": shock,
+                    "shock_days_cumulative": shock_days,
+                    "weather": world.weather,
+                    "alive_count": len(alive_agents),
+                    "births": births_today,
+                    "deaths": deaths_today,
+                    "innovation_events": innovation_events_today,
+                    "innovations_count": len(world.innovations),
+                    "water_abundance": round(world.water_abundance, 6),
+                    "food_abundance": round(world.food_abundance, 6),
+                    "mean_health": round(mean_health, 6),
+                    "world_innovations": sorted(world.innovations)[:20],
+                }
+            )
 
             if not any(agent.alive for agent in agents.values()):
                 break
@@ -296,14 +348,26 @@ class NeatSurvivalTrainer:
         }
         self.history.append(generation_record)
 
+        if self._generation_log_path is not None:
+            with self._generation_log_path.open("a", encoding="utf-8") as fp:
+                fp.write(json.dumps(generation_record, ensure_ascii=True) + "\n")
+
         if self._generation_index % 5 == 0:
+            innovation_count = len(generation_record["world_innovations"])
             print(
                 "NEAT generation "
                 f"{self._generation_index}: best={generation_record['best_fitness']:.2f} "
                 f"mean={generation_record['mean_fitness']:.2f} "
                 f"culture={generation_record['mean_culture_size']:.2f} "
-                f"shocks={shock_days}"
+                f"shocks={shock_days} "
+                f"innov={innovation_count}"
             )
+
+    def _append_world_timeline(self, payload: Dict[str, object]) -> None:
+        if self._world_timeline_path is None:
+            return
+        with self._world_timeline_path.open("a", encoding="utf-8") as fp:
+            fp.write(json.dumps(payload, ensure_ascii=True) + "\n")
 
     def _seed_initial_pregnancies(self, agents: Dict[int, Agent], rng: random.Random) -> None:
         adult_males = [
@@ -579,8 +643,34 @@ class NeatSurvivalTrainer:
             innovation_lore,
         )
 
-    def _apply_stage2_environment(self, world: WorldState, day: int, rng: random.Random) -> str | None:
+    def _curriculum_stage(self, day: int, total_days: int) -> int:
+        if not self.training_config.curriculum_enabled:
+            return 0
+        ratio = day / float(max(1, total_days))
+        if ratio < 0.34:
+            return 1
+        if ratio < 0.67:
+            return 2
+        return 3
+
+    def _curriculum_multiplier(self, stage: int) -> float:
+        if stage <= 1:
+            return 0.92
+        if stage == 2:
+            return 1.08
+        return 1.28
+
+    def _apply_stage2_environment(
+        self,
+        world: WorldState,
+        day: int,
+        rng: random.Random,
+        total_days: int,
+    ) -> str | None:
         difficulty = max(0.6, self.training_config.world_difficulty)
+        stage = self._curriculum_stage(day=day, total_days=total_days)
+        if stage > 0:
+            difficulty = max(0.6, difficulty * self._curriculum_multiplier(stage))
 
         drift = math.sin((day / 39.0) + (self._generation_index * 0.17)) * 0.018
         world.water_abundance = _clamp(
@@ -719,7 +809,12 @@ class NeatSurvivalTrainer:
         for day in range(1, days + 1):
             world.day = day
             advance_world(world, rng)
-            shock = self._apply_stage2_environment(world=world, day=day, rng=rng)
+            shock = self._apply_stage2_environment(
+                world=world,
+                day=day,
+                rng=rng,
+                total_days=days,
+            )
             if shock is not None:
                 shock_days += 1
 

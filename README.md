@@ -176,6 +176,39 @@ python3 run_simulation.py --days 2500 --population 12 --proposer-model llama3.2:
   --robustness-days 700
 ```
 
+### Live watch while training is running
+
+Use a second terminal and watch the world in real time:
+
+```bash
+.venv/bin/python scripts/watch_world_live.py --log-path outputs/neat_live_watch/world_timeline.jsonl
+```
+
+Optional raw tail streams:
+
+```bash
+tail -f outputs/neat_live_watch/generation_log.jsonl
+tail -f outputs/neat_live_watch/world_timeline.jsonl
+```
+
+`generation_log.jsonl` gives generation summaries.
+`world_timeline.jsonl` gives day-level world changes (resources, shocks, births, deaths, innovations).
+
+### AGI-oriented next step: staged curriculum worlds
+
+Enable curriculum to force adaptation across regime shifts inside each evaluation episode:
+
+```bash
+.venv/bin/python run_neat_training.py \
+  --generations 40 \
+  --eval-days 900 \
+  --max-population 260 \
+  --world-difficulty 1.5 \
+  --shock-prob 0.02 \
+  --curriculum \
+  --output-dir outputs/neat_curriculum_watch
+```
+
 ### Resume from checkpoint
 
 ```bash
@@ -257,6 +290,9 @@ Use the observatory report plus leaderboard together to create that experience.
 - `--robustness-founders`
 : founder count per robustness episode.
 
+- `--curriculum`
+: enables staged world regimes to pressure broader adaptive behavior.
+
 ---
 
 ## Output Artifacts
@@ -279,6 +315,12 @@ Use the observatory report plus leaderboard together to create that experience.
 
 - `history.json`
 : generation-level fitness history.
+
+- `generation_log.jsonl`
+: live per-generation stream (safe to `tail -f` during training).
+
+- `world_timeline.jsonl`
+: live day-level world stream (resources, shocks, births/deaths, innovations).
 
 - `robustness.json`
 : champion evaluation over unseen seeds.

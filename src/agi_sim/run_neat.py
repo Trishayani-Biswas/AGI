@@ -25,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--robustness-seeds", type=int, default=None, help="Number of unseen seeds for champion robustness test")
     parser.add_argument("--robustness-days", type=int, default=None, help="Days per unseen-seed robustness episode")
     parser.add_argument("--robustness-founders", type=int, default=None, help="Founders used in robustness episodes")
+    parser.add_argument("--curriculum", action="store_true", help="Enable staged world regimes to pressure broader adaptation")
     return parser.parse_args()
 
 
@@ -55,6 +56,8 @@ def build_config(args: argparse.Namespace) -> NeatTrainingConfig:
         cfg = replace(cfg, robustness_days=args.robustness_days)
     if args.robustness_founders is not None:
         cfg = replace(cfg, robustness_founders=args.robustness_founders)
+    if args.curriculum:
+        cfg = replace(cfg, curriculum_enabled=True)
 
     return cfg
 
