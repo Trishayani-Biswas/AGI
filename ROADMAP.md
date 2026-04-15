@@ -41,11 +41,12 @@ Now:
 - Completed another matched curriculum ablation extension (+8 seeds) with post-batch full sync/lint.
 - Completed a second matched curriculum extension block (+8 seeds) with post-batch full sync/lint.
 - Completed a third matched curriculum extension block (+8 seeds; total +24 extension seeds across three blocks) with post-batch full sync/lint.
+- Completed a fourth matched curriculum extension block (+8 seeds; total +32 extension seeds across four blocks) with post-batch full sync/lint.
 - Completed H3 reward-weight sweep (alive_end vs innovation) with post-batch full sync/lint; higher alive_end weighting improved robustness and average survivorship, while innovation-heavy weighting underperformed.
-- Latest hypothesis snapshot still shows curriculum underperforming fixed baseline in matched scope (H1 remains FAIL), but uncertainty has tightened toward inconclusive after the latest refresh (delta -10.4%, 95% CI [-23.6%, +2.1%]); innovation-family intervention outcomes remain directionally positive but statistically inconclusive.
+- Latest hypothesis snapshot moved H1 from FAIL to INCONCLUSIVE in matched scope (delta -9.5%, 95% CI [-21.4%, +0.8%]), while H2 remains PASS on rich-vs-sparse separation; intervention ranking now places the shock-stability sweep slightly ahead of another H1 extension.
 
 Next checkpoints:
-1. Decide whether to continue H2 with even higher shock pressure or return to H1 if curriculum uncertainty is still the tighter unknown.
+1. Run the ranked H2 shock-stability sweep (0.02/0.03/0.04) and re-evaluate intervention-outcome conclusiveness.
 2. Tune reward pressure and robustness protocol until variance drops.
 3. Keep the compare/observatory/wiki loop running on each new batch.
 

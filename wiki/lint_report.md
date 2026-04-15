@@ -1,7 +1,7 @@
 # AGI Wiki Lint Report
 
 - Wiki directory: wiki
-- Markdown files scanned: 161
+- Markdown files scanned: 165
 - Broken links: 0
 - Orphan run pages: 0
 - Claim evidence issues: 0

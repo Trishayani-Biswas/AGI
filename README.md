@@ -261,14 +261,18 @@ Recent large-batch executions have now run end-to-end from those templates:
 - completed innovation stress sweep (18 runs across shock 0.020/0.030/0.040)
 - completed a second innovation stress sweep (18 more runs across shock 0.020/0.030/0.040)
 - completed a higher-pressure H2 sweep (18 runs across shock 0.050/0.060/0.070)
-- completed additional matched curriculum ablation extensions (+24 seeds total across three blocks)
+- completed additional matched curriculum ablation extensions (+32 seeds total across four blocks)
 - completed H3 reward-weight sweep (6 runs across 3 alive_end/innovation weight pairs)
 - refreshed compare + observatory + wiki with clean lint after each batch
 Current evidence snapshot from the latest observatory refresh:
-- H1 remains FAIL overall, but moved closer to inconclusive after the latest refresh (`n_curr=27`, `n_base=193`, delta `-10.4%`, 95% CI `[-23.6%, +2.1%]`)
-- latest extension block itself favored curriculum (`~39.7k` vs `~35.0k`, `+13.4%`), but aggregate matched-scope evidence still trends negative
-- H2 remains PASS overall, and the larger intervention outcome window is now still INCONCLUSIVE (`54` runs; delta `+300.1`, CI crosses zero) even though rich-vs-sparse innovation remains strongly separated (`113` vs `14` runs)
-- H3 now shows the expected tradeoff: higher `alive_end_weight` improves robustness and average `alive_end`, while innovation-heavy weighting reduces robustness (`3.0/12.0` -> ~`30.7k` robust mean, `4.5/9.0` -> ~`37.9k`, `6.0/6.0` -> ~`40.9k`)
+- H1 moved from FAIL to INCONCLUSIVE in matched scope (`n_curr=39`, `n_base=205`, delta `-9.5%`, 95% CI `[-21.4%, +0.8%]`): uncertainty is tighter, but curriculum is not yet convincingly better.
+- H2 remains PASS with strong rich-vs-sparse separation (`n_rich=133`, `n_sparse=18`, delta `+438.8%`, 95% CI `[+288.8%, +730.0%]`), but intervention-outcome tracking for the H2 family is still INCONCLUSIVE.
+- Intervention outcome tracking for H1 now shows `68` post-intervention runs and remains positive at the family level (`+18.4k` delta, effect d `1.780`).
+- Recommendation order changed: shock-stability sweep is now top-ranked (priority `+0.605`), with another H1 matched extension second (priority `+0.581`).
+
+Next best stage from this snapshot:
+- run the ranked H2 shock-stability sweep (0.02/0.03/0.04) to resolve whether innovation gains hold under controlled pressure changes
+- if H2 remains inconclusive in intervention-outcome tracking after that sweep, run one more matched H1 +8 block to further narrow the curriculum interval
 
 ### Build persistent AGI wiki memory (Karpathy LLM Wiki pattern)
 
