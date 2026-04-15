@@ -1315,3 +1315,12 @@ Append-only timeline of wiki ingests and major updates.
 - robustness_mean: 42848.324
 - winner_fitness: 12541.498
 - curriculum_enabled: no
+
+## [2026-04-15] ingest | h1_match_curr_29034
+
+- page: [runs/h1_match_curr_29034.md](runs/h1_match_curr_29034.md)
+- source: [../outputs/h1_match_curr_29034/summary.json](../outputs/h1_match_curr_29034/summary.json)
+- full_generation_run: yes
+- robustness_mean: 42107.560
+- winner_fitness: 10175.770
+- curriculum_enabled: yes

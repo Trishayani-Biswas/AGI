@@ -259,11 +259,12 @@ It also emits ranked executable campaign templates so top interventions are imme
 Intervention families are now tracked over time with baseline-vs-post outcome deltas and fed back into recommendation scoring.
 Recent large-batch executions have now run end-to-end from those templates:
 - completed innovation stress sweep (18 runs across shock 0.020/0.030/0.040)
-- completed additional matched curriculum ablation extensions (+16 seeds total across two blocks)
+- completed additional matched curriculum ablation extensions (+24 seeds total across three blocks)
 - completed H3 reward-weight sweep (6 runs across 3 alive_end/innovation weight pairs)
 - refreshed compare + observatory + wiki with clean lint after each batch
 Current evidence snapshot from the latest observatory refresh:
-- H1 remains FAIL with tighter evidence (`n_curr=23`, `n_base=177`, delta `-14.1%`, 95% CI `[-29.2%, -0.4%]`)
+- H1 remains FAIL overall, but moved closer to inconclusive after the third extension (`n_curr=27`, `n_base=187`, delta `-10.5%`, 95% CI `[-24.8%, +1.3%]`)
+- latest extension block itself favored curriculum (`~39.7k` vs `~35.0k`, `+13.4%`), but aggregate matched-scope evidence still trends negative
 - H2 remains PASS overall, while intervention outcome tracking for `h2_innovation` is still INCONCLUSIVE (CI crosses zero)
 - H3 now shows the expected tradeoff: higher `alive_end_weight` improves robustness and average `alive_end`, while innovation-heavy weighting reduces robustness (`3.0/12.0` -> ~`30.7k` robust mean, `4.5/9.0` -> ~`37.9k`, `6.0/6.0` -> ~`40.9k`)
 
