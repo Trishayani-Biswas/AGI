@@ -1432,3 +1432,39 @@ Append-only timeline of wiki ingests and major updates.
 - robustness_mean: 41746.973
 - winner_fitness: 10588.340
 - curriculum_enabled: no
+
+## [2026-04-15] ingest | h2_shock_0.020_29109
+
+- page: [runs/h2_shock_0.020_29109.md](runs/h2_shock_0.020_29109.md)
+- source: [../outputs/h2_shock_0.020_29109/summary.json](../outputs/h2_shock_0.020_29109/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41589.935
+- winner_fitness: 20353.731
+- curriculum_enabled: no
+
+## [2026-04-15] ingest | h2_shock_0.020_29110
+
+- page: [runs/h2_shock_0.020_29110.md](runs/h2_shock_0.020_29110.md)
+- source: [../outputs/h2_shock_0.020_29110/summary.json](../outputs/h2_shock_0.020_29110/summary.json)
+- full_generation_run: yes
+- robustness_mean: 42260.031
+- winner_fitness: 10457.857
+- curriculum_enabled: no
+
+## [2026-04-15] ingest | h2_shock_0.030_29108
+
+- page: [runs/h2_shock_0.030_29108.md](runs/h2_shock_0.030_29108.md)
+- source: [../outputs/h2_shock_0.030_29108/summary.json](../outputs/h2_shock_0.030_29108/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40935.595
+- winner_fitness: 13566.660
+- curriculum_enabled: no
+
+## [2026-04-15] ingest | h2_shock_0.030_29110
+
+- page: [runs/h2_shock_0.030_29110.md](runs/h2_shock_0.030_29110.md)
+- source: [../outputs/h2_shock_0.030_29110/summary.json](../outputs/h2_shock_0.030_29110/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41355.247
+- winner_fitness: 11022.795
+- curriculum_enabled: no

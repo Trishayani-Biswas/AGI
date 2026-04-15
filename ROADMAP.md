@@ -37,18 +37,21 @@ Now:
 - Hard-mode seed campaign is active (A, B, C_fixed, D) with variance tracking.
 - Completed ranked intervention template execution for innovation stress sweep (18 runs at shock 0.020/0.030/0.040) with post-batch full sync/lint.
 - Completed a second innovation stress sweep (18 more runs at shock 0.020/0.030/0.040) with post-batch full sync/lint.
+- Completed a third innovation stress sweep (18 runs at shock 0.020/0.030/0.040 with fresh seeds) with post-batch full sync/lint.
+- Completed a fourth innovation stress sweep (18 runs at shock 0.020/0.030/0.040 with a second fresh seed window) with post-batch full sync/lint.
 - Completed a higher-pressure H2 sweep (18 runs at shock 0.050/0.060/0.070) with post-batch full sync/lint.
 - Completed another matched curriculum ablation extension (+8 seeds) with post-batch full sync/lint.
 - Completed a second matched curriculum extension block (+8 seeds) with post-batch full sync/lint.
 - Completed a third matched curriculum extension block (+8 seeds; total +24 extension seeds across three blocks) with post-batch full sync/lint.
 - Completed a fourth matched curriculum extension block (+8 seeds; total +32 extension seeds across four blocks) with post-batch full sync/lint.
+- Completed a fifth matched curriculum extension block (+8 seeds; total +40 extension seeds across five blocks) with post-batch full sync/lint.
 - Completed H3 reward-weight sweep (alive_end vs innovation) with post-batch full sync/lint; higher alive_end weighting improved robustness and average survivorship, while innovation-heavy weighting underperformed.
-- Latest hypothesis snapshot moved H1 from FAIL to INCONCLUSIVE in matched scope (delta -9.5%, 95% CI [-21.4%, +0.8%]), while H2 remains PASS on rich-vs-sparse separation; intervention ranking now places the shock-stability sweep slightly ahead of another H1 extension.
+- Latest hypothesis snapshot keeps H1 INCONCLUSIVE and near-neutral (delta -7.7%, 95% CI [-18.6%, +2.2%]), while H2 remains PASS on rich-vs-sparse separation; H2 intervention-outcome tracking improved toward neutral but remains inconclusive, and ranking still favors another shock-stability sweep.
 
 Next checkpoints:
-1. Run the ranked H2 shock-stability sweep (0.02/0.03/0.04) and re-evaluate intervention-outcome conclusiveness.
+1. Continue ranked H2 shock-stability sweeps (0.02/0.03/0.04) until intervention-outcome confidence no longer crosses zero.
 2. Tune reward pressure and robustness protocol until variance drops.
-3. Keep the compare/observatory/wiki loop running on each new batch.
+3. Keep alternating with matched H1 +8 extensions whenever H1 remains the tighter unresolved uncertainty boundary.
 
 ## Priority 3: Open-Ended Ecology
 

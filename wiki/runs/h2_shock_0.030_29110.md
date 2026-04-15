@@ -1,11 +1,11 @@
-# Run: h2_shock_0.030_29005
+# Run: h2_shock_0.030_29110
 
 ## Snapshot
 
-- Rank by robustness: 27
+- Rank by robustness: 24
 - Completed full generations: yes (40/40)
-- Winner fitness: 10123.307
-- Robustness mean/min/max: 41249.950 / 38809.441 / 42551.161
+- Winner fitness: 11022.795
+- Robustness mean/min/max: 41355.247 / 39815.646 / 42970.701
 - World difficulty: 1.450
 - Shock probability: 0.030
 - Eval days: 900
@@ -14,9 +14,9 @@
 
 ## Raw Source Artifacts
 
-- [summary.json](../../outputs/h2_shock_0.030_29005/summary.json)
-- [robustness.json](../../outputs/h2_shock_0.030_29005/robustness.json)
-- [history.json](../../outputs/h2_shock_0.030_29005/history.json)
+- [summary.json](../../outputs/h2_shock_0.030_29110/summary.json)
+- [robustness.json](../../outputs/h2_shock_0.030_29110/robustness.json)
+- [history.json](../../outputs/h2_shock_0.030_29110/history.json)
 
 ## Interpretation
 

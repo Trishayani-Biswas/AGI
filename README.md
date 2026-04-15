@@ -260,19 +260,22 @@ Intervention families are now tracked over time with baseline-vs-post outcome de
 Recent large-batch executions have now run end-to-end from those templates:
 - completed innovation stress sweep (18 runs across shock 0.020/0.030/0.040)
 - completed a second innovation stress sweep (18 more runs across shock 0.020/0.030/0.040)
+- completed a third innovation stress sweep (18 runs across shock 0.020/0.030/0.040 with fresh seed window)
+- completed a fourth innovation stress sweep (18 runs across shock 0.020/0.030/0.040 with a second fresh seed window)
 - completed a higher-pressure H2 sweep (18 runs across shock 0.050/0.060/0.070)
-- completed additional matched curriculum ablation extensions (+32 seeds total across four blocks)
+- completed additional matched curriculum ablation extensions (+40 seeds total across five blocks)
 - completed H3 reward-weight sweep (6 runs across 3 alive_end/innovation weight pairs)
 - refreshed compare + observatory + wiki with clean lint after each batch
 Current evidence snapshot from the latest observatory refresh:
-- H1 moved from FAIL to INCONCLUSIVE in matched scope (`n_curr=39`, `n_base=205`, delta `-9.5%`, 95% CI `[-21.4%, +0.8%]`): uncertainty is tighter, but curriculum is not yet convincingly better.
-- H2 remains PASS with strong rich-vs-sparse separation (`n_rich=133`, `n_sparse=18`, delta `+438.8%`, 95% CI `[+288.8%, +730.0%]`), but intervention-outcome tracking for the H2 family is still INCONCLUSIVE.
-- Intervention outcome tracking for H1 now shows `68` post-intervention runs and remains positive at the family level (`+18.4k` delta, effect d `1.780`).
-- Recommendation order changed: shock-stability sweep is now top-ranked (priority `+0.605`), with another H1 matched extension second (priority `+0.581`).
+- H1 remains INCONCLUSIVE and near-neutral in matched scope (`n_curr=43`, `n_base=221`, delta `-7.7%`, 95% CI `[-18.6%, +2.2%]`): uncertainty is tighter, but curriculum is still not conclusively better.
+- H2 remains PASS with strong rich-vs-sparse separation (`n_rich=149`, `n_sparse=19`, delta `+419.7%`, 95% CI `[+284.2%, +696.7%]`), while H2 intervention-outcome tracking remains INCONCLUSIVE.
+- Intervention outcome tracking for H1 now covers `76` post-intervention runs and remains positive at the family level (`+18.3k` delta, effect d `1.805`).
+- H2 intervention-outcome tracking now covers `108` runs and moved closer to neutral (delta `-650.6`, effect d `-0.087`) but still has a confidence interval crossing zero.
+- Recommendation order keeps shock-stability sweep first (priority `+0.605`) with matched H1 extension second (priority `+0.520`).
 
 Next best stage from this snapshot:
-- run the ranked H2 shock-stability sweep (0.02/0.03/0.04) to resolve whether innovation gains hold under controlled pressure changes
-- if H2 remains inconclusive in intervention-outcome tracking after that sweep, run one more matched H1 +8 block to further narrow the curriculum interval
+- continue ranked H2 shock-stability sweeps (0.02/0.03/0.04) until intervention-outcome confidence no longer crosses zero
+- alternate with matched H1 +8 extensions when H1 uncertainty remains the tighter unresolved decision boundary
 
 ### Build persistent AGI wiki memory (Karpathy LLM Wiki pattern)
 
