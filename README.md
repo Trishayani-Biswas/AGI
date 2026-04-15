@@ -254,7 +254,16 @@ For strict apples-to-apples campaigns (recommended), include only full-generatio
 ```
 
 This writes a watch report at `outputs/experiment_observatory.md`.
-The report now includes auto hypothesis cards plus prioritized intervention recommendations when results fail or are inconclusive.
+The report now includes auto hypothesis cards with confidence intervals and effect-size summaries, plus uncertainty-aware intervention ranking (expected upside, confidence, downside risk) and prioritized recommendations.
+It also emits ranked executable campaign templates so top interventions are immediately runnable as seed-batched command blocks.
+Intervention families are now tracked over time with baseline-vs-post outcome deltas and fed back into recommendation scoring.
+Recent large-batch executions have now run end-to-end from those templates:
+- completed innovation stress sweep (18 runs across shock 0.020/0.030/0.040)
+- completed additional matched curriculum ablation extension (+8 seeds)
+- refreshed compare + observatory + wiki with clean lint after each batch
+Current evidence snapshot from the latest observatory refresh:
+- H1 remains FAIL with tighter evidence (`n_curr=19`, `n_base=173`, delta `-19.0%`, 95% CI `[-37.4%, -3.2%]`)
+- H2 remains PASS overall, while intervention outcome tracking for `h2_innovation` is still INCONCLUSIVE (CI crosses zero)
 
 ### Build persistent AGI wiki memory (Karpathy LLM Wiki pattern)
 

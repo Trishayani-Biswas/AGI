@@ -15,10 +15,14 @@ Now:
 - Implemented observatory report generator with anomaly markers, policy-family tags, compact lineage timelines, campaign drift metrics, auto hypothesis cards, and automatic intervention recommendations: `scripts/build_experiment_observatory.py`.
 - Implemented persistent AGI wiki memory layer (raw sources -> wiki -> schema) with automated ingest/index/log maintenance: `scripts/build_agi_wiki.py`, `wiki/`, `AGI_WIKI.md`.
 - Implemented automatic memory orchestration pipeline that refreshes compare + observatory + wiki + lint outputs after runs and via hook triggers: `scripts/agi_memory_autosync.py`, `scripts/lint_agi_wiki.py`, `.github/hooks/agi-memory-sync.json`.
+- Added confidence intervals and effect-size summaries to hypothesis cards for curriculum ablation, innovation-family gap, survivorship correlation, and campaign drift: `scripts/build_experiment_observatory.py`.
+- Added uncertainty-aware intervention ranking that scores actions by expected upside, confidence, and downside risk before recommending next experiments: `scripts/build_experiment_observatory.py`.
+- Added ranked executable campaign templates generated from top interventions, including command-ready seed-batch loops and post-batch sync commands: `scripts/build_experiment_observatory.py`.
+- Added intervention outcome tracking that compares post-intervention robustness against pre-intervention baselines and feeds historical outcomes back into ranking: `scripts/build_experiment_observatory.py`.
 
 Next checkpoints:
 1. Add cross-run causal ablation summaries for major metric jumps.
-2. Add confidence intervals and effect-size summaries for each hypothesis card.
+2. Add auto-execution mode for top-ranked templates with budget caps and post-run scorecards.
 
 ## Priority 2: Stability Over Seed Luck
 
@@ -31,10 +35,14 @@ Mastery gate:
 
 Now:
 - Hard-mode seed campaign is active (A, B, C_fixed, D) with variance tracking.
+- Completed ranked intervention template execution for innovation stress sweep (18 runs at shock 0.020/0.030/0.040) with post-batch full sync/lint.
+- Completed another matched curriculum ablation extension (+8 seeds) with post-batch full sync/lint.
+- Latest hypothesis snapshot still shows curriculum underperforming fixed baseline in matched scope (H1 remains FAIL), while innovation-family intervention outcomes remain directionally positive but statistically inconclusive.
 
 Next checkpoints:
-1. Run larger fixed-condition campaigns (at least 6 seeds).
-2. Tune reward pressure and robustness protocol until variance drops.
+1. Run the next matched curriculum extension block to tighten H1 confidence bounds further.
+2. Add an explicit H3 reward-weight sweep campaign (alive_end vs innovation pressure) and compare robustness/correlation shifts.
+3. Tune reward pressure and robustness protocol until variance drops.
 
 ## Priority 3: Open-Ended Ecology
 

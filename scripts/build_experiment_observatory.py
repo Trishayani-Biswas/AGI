@@ -5,7 +5,9 @@ import csv
 from collections import Counter
 from datetime import datetime, timezone
 import json
+import math
 from pathlib import Path
+import random
 from statistics import mean, pstdev
 from typing import Dict, Iterable, List, Tuple
 
@@ -63,6 +65,134 @@ def _fmt_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
     return f"{(value * 100.0):.1f}%"
+
+
+def _percentile(sorted_values: List[float], q: float) -> float | None:
+    if not sorted_values:
+        return None
+    if q <= 0.0:
+        return sorted_values[0]
+    if q >= 1.0:
+        return sorted_values[-1]
+
+    index = q * (len(sorted_values) - 1)
+    lo = int(math.floor(index))
+    hi = int(math.ceil(index))
+    if lo == hi:
+        return sorted_values[lo]
+
+    weight = index - lo
+    return sorted_values[lo] * (1.0 - weight) + sorted_values[hi] * weight
+
+
+def _sample_variance(values: List[float]) -> float | None:
+    if len(values) < 2:
+        return None
+    avg = mean(values)
+    return sum((value - avg) ** 2 for value in values) / float(len(values) - 1)
+
+
+def _cohens_d(group_a: List[float], group_b: List[float]) -> float | None:
+    if len(group_a) < 2 or len(group_b) < 2:
+        return None
+
+    var_a = _sample_variance(group_a)
+    var_b = _sample_variance(group_b)
+    if var_a is None or var_b is None:
+        return None
+
+    n_a = len(group_a)
+    n_b = len(group_b)
+    pooled_var = ((n_a - 1) * var_a + (n_b - 1) * var_b) / float(n_a + n_b - 2)
+    if pooled_var <= 1e-12:
+        return None
+
+    return (mean(group_a) - mean(group_b)) / math.sqrt(pooled_var)
+
+
+def _bootstrap_mean_diff_ci(
+    group_a: List[float],
+    group_b: List[float],
+    *,
+    iterations: int = 1200,
+    alpha: float = 0.05,
+    seed: int = 1337,
+) -> Tuple[float | None, float | None]:
+    if not group_a or not group_b:
+        return (None, None)
+
+    rng = random.Random(seed)
+    n_a = len(group_a)
+    n_b = len(group_b)
+    diffs: List[float] = []
+
+    for _ in range(max(200, iterations)):
+        sample_a = [group_a[rng.randrange(n_a)] for _ in range(n_a)]
+        sample_b = [group_b[rng.randrange(n_b)] for _ in range(n_b)]
+        diffs.append(mean(sample_a) - mean(sample_b))
+
+    diffs.sort()
+    lower = _percentile(diffs, alpha / 2.0)
+    upper = _percentile(diffs, 1.0 - (alpha / 2.0))
+    return (lower, upper)
+
+
+def _bootstrap_relative_delta_ci(
+    group_a: List[float],
+    group_b: List[float],
+    *,
+    iterations: int = 1200,
+    alpha: float = 0.05,
+    seed: int = 1441,
+) -> Tuple[float | None, float | None]:
+    if not group_a or not group_b:
+        return (None, None)
+
+    rng = random.Random(seed)
+    n_a = len(group_a)
+    n_b = len(group_b)
+    ratios: List[float] = []
+
+    for _ in range(max(200, iterations)):
+        sample_a = [group_a[rng.randrange(n_a)] for _ in range(n_a)]
+        sample_b = [group_b[rng.randrange(n_b)] for _ in range(n_b)]
+        mean_a = mean(sample_a)
+        mean_b = mean(sample_b)
+        if abs(mean_b) < 1e-9:
+            continue
+        ratios.append((mean_a - mean_b) / abs(mean_b))
+
+    if not ratios:
+        return (None, None)
+
+    ratios.sort()
+    lower = _percentile(ratios, alpha / 2.0)
+    upper = _percentile(ratios, 1.0 - (alpha / 2.0))
+    return (lower, upper)
+
+
+def _corr_ci(corr: float, n: int) -> Tuple[float | None, float | None]:
+    if n <= 3:
+        return (None, None)
+
+    clipped = max(-0.999999, min(0.999999, corr))
+    fisher = 0.5 * math.log((1.0 + clipped) / (1.0 - clipped))
+    se = 1.0 / math.sqrt(float(n - 3))
+    low = fisher - (1.96 * se)
+    high = fisher + (1.96 * se)
+    return (math.tanh(low), math.tanh(high))
+
+
+def _fmt_ci(value_low: float | None, value_high: float | None, digits: int = 3) -> str:
+    if value_low is None or value_high is None:
+        return "n/a"
+    return f"[{value_low:.{digits}f}, {value_high:.{digits}f}]"
+
+
+def _fmt_pct_ci(value_low: float | None, value_high: float | None) -> str:
+    if value_low is None or value_high is None:
+        return "n/a"
+    return f"[{value_low * 100.0:+.1f}%, {value_high * 100.0:+.1f}%]"
 
 
 def _parse_innovation_name(outcome: str) -> str | None:
@@ -585,6 +715,8 @@ def _compute_lineage_cluster_drift(rows: List[Dict[str, object]]) -> Dict[str, o
         "decrease_cluster": decrease_cluster,
         "early_robust_mean": early_robust_mean,
         "late_robust_mean": late_robust_mean,
+        "early_robust_values": early_robust_clean,
+        "late_robust_values": late_robust_clean,
         "robust_delta": robust_delta,
         "trace": trace_items,
     }
@@ -648,8 +780,8 @@ def _select_best_curriculum_group(
 def _build_hypothesis_cards(
     rows: List[Dict[str, object]],
     drift: Dict[str, object] | None,
-) -> List[Dict[str, str]]:
-    cards: List[Dict[str, str]] = []
+) -> List[Dict[str, object]]:
+    cards: List[Dict[str, object]] = []
 
     # H1: Curriculum vs non-curriculum under comparable settings.
     best_group_key, best_group_rows, best_pair_count = _select_best_curriculum_group(rows)
@@ -662,6 +794,8 @@ def _build_hypothesis_cards(
                 "status": "INCONCLUSIVE",
                 "evidence": "No comparable curriculum/non-curriculum run pair in the same campaign settings.",
                 "next_action": "Run one baseline and one curriculum run with identical settings and different seeds.",
+                "n_curr": 0,
+                "n_base": 0,
             }
         )
     else:
@@ -678,6 +812,9 @@ def _build_hypothesis_cards(
         curr_mean = mean(curriculum_clean)
         base_mean = mean(baseline_clean)
         delta = 0.0 if abs(base_mean) < 1e-9 else (curr_mean - base_mean) / abs(base_mean)
+        delta_ci_low, delta_ci_high = _bootstrap_relative_delta_ci(curriculum_clean, baseline_clean)
+        diff_ci_low, diff_ci_high = _bootstrap_mean_diff_ci(curriculum_clean, baseline_clean)
+        effect_d = _cohens_d(curriculum_clean, baseline_clean)
         cards.append(
             {
                 "id": "h1_curriculum",
@@ -685,9 +822,18 @@ def _build_hypothesis_cards(
                 "status": _status_from_delta(delta, pass_threshold=0.1),
                 "evidence": (
                     f"Scope={_group_key_label(best_group_key)}; "
-                    f"curriculum_mean={curr_mean:.3f}, baseline_mean={base_mean:.3f}, delta={delta * 100.0:+.1f}%."
+                    f"n_curr={len(curriculum_clean)}, n_base={len(baseline_clean)}; "
+                    f"curriculum_mean={curr_mean:.3f}, baseline_mean={base_mean:.3f}, "
+                    f"delta={delta * 100.0:+.1f}% (95% CI { _fmt_pct_ci(delta_ci_low, delta_ci_high) }); "
+                    f"mean_diff_CI={_fmt_ci(diff_ci_low, diff_ci_high)}; effect_d={_fmt_float(effect_d)}."
                 ),
                 "next_action": "Increase seed count in both groups to reduce variance before finalizing.",
+                "n_curr": len(curriculum_clean),
+                "n_base": len(baseline_clean),
+                "delta": delta,
+                "delta_ci_low": delta_ci_low,
+                "delta_ci_high": delta_ci_high,
+                "effect_d": effect_d,
             }
         )
 
@@ -708,16 +854,27 @@ def _build_hypothesis_cards(
         rich_mean = mean(rich_values)
         sparse_mean = mean(sparse_values)
         delta = 0.0 if abs(sparse_mean) < 1e-9 else (rich_mean - sparse_mean) / abs(sparse_mean)
+        delta_ci_low, delta_ci_high = _bootstrap_relative_delta_ci(rich_values, sparse_values)
+        diff_ci_low, diff_ci_high = _bootstrap_mean_diff_ci(rich_values, sparse_values)
+        effect_d = _cohens_d(rich_values, sparse_values)
         cards.append(
             {
                 "id": "h2_innovation",
                 "title": "Innovation-Rich Policies Outperform Innovation-Sparse Policies",
                 "status": _status_from_delta(delta, pass_threshold=0.1),
                 "evidence": (
+                    f"n_rich={len(rich_values)}, n_sparse={len(sparse_values)}; "
                     f"innovation_rich_mean={rich_mean:.3f}, innovation_sparse_mean={sparse_mean:.3f}, "
-                    f"delta={delta * 100.0:+.1f}%."
+                    f"delta={delta * 100.0:+.1f}% (95% CI { _fmt_pct_ci(delta_ci_low, delta_ci_high) }); "
+                    f"mean_diff_CI={_fmt_ci(diff_ci_low, diff_ci_high)}; effect_d={_fmt_float(effect_d)}."
                 ),
                 "next_action": "Check if innovation gains persist when shock probability is increased.",
+                "n_rich": len(rich_values),
+                "n_sparse": len(sparse_values),
+                "delta": delta,
+                "delta_ci_low": delta_ci_low,
+                "delta_ci_high": delta_ci_high,
+                "effect_d": effect_d,
             }
         )
     else:
@@ -728,6 +885,8 @@ def _build_hypothesis_cards(
                 "status": "INCONCLUSIVE",
                 "evidence": "Not enough runs tagged as both innovation_rich and innovation_sparse.",
                 "next_action": "Run more seeds until both families are represented with robustness metrics.",
+                "n_rich": len(rich_values),
+                "n_sparse": len(sparse_values),
             }
         )
 
@@ -752,6 +911,7 @@ def _build_hypothesis_cards(
                 "status": "INCONCLUSIVE",
                 "evidence": "Insufficient non-degenerate data for correlation.",
                 "next_action": "Collect more runs with varied mean_alive_end values.",
+                "n_pairs": len(alive_values),
             }
         )
     else:
@@ -761,13 +921,24 @@ def _build_hypothesis_cards(
             status = "FAIL"
         else:
             status = "INCONCLUSIVE"
+        corr_ci_low, corr_ci_high = _corr_ci(corr, len(alive_values))
+        r_squared = corr * corr
         cards.append(
             {
                 "id": "h3_survivorship",
                 "title": "Survivorship Correlates With Robustness",
                 "status": status,
-                "evidence": f"pearson_corr(mean_alive_end, robustness_mean)={corr:+.3f} across {len(alive_values)} runs.",
+                "evidence": (
+                    "pearson_corr(mean_alive_end, robustness_mean)="
+                    f"{corr:+.3f} (95% CI {_fmt_ci(corr_ci_low, corr_ci_high)}) "
+                    f"across {len(alive_values)} runs; r_squared={r_squared:.3f}."
+                ),
                 "next_action": "Use this signal to tune fitness weighting for alive_end vs innovation pressure.",
+                "n_pairs": len(alive_values),
+                "corr": corr,
+                "corr_ci_low": corr_ci_low,
+                "corr_ci_high": corr_ci_high,
+                "r_squared": r_squared,
             }
         )
 
@@ -780,11 +951,24 @@ def _build_hypothesis_cards(
                 "status": "INCONCLUSIVE",
                 "evidence": "No drift block available for this campaign.",
                 "next_action": "Ensure at least four completed comparable runs for drift analysis.",
+                "run_count": 0,
             }
         )
     else:
         drift_score = _safe_float(drift.get("drift_score"))
         robust_delta = _safe_float(drift.get("robust_delta"))
+        early_robust_values = [
+            value
+            for value in (drift.get("early_robust_values") or [])
+            if isinstance(value, (int, float))
+        ]
+        late_robust_values = [
+            value
+            for value in (drift.get("late_robust_values") or [])
+            if isinstance(value, (int, float))
+        ]
+        robust_ci_low, robust_ci_high = _bootstrap_mean_diff_ci(late_robust_values, early_robust_values)
+        robust_effect_d = _cohens_d(late_robust_values, early_robust_values)
         if drift_score is None or robust_delta is None:
             status = "INCONCLUSIVE"
         elif drift_score <= 0.6 and robust_delta > 0:
@@ -800,102 +984,576 @@ def _build_hypothesis_cards(
                 "status": status,
                 "evidence": (
                     f"drift_score={_fmt_float(drift_score)} ({drift.get('drift_label', 'n/a')}), "
-                    f"robust_delta={_fmt_float(robust_delta)}."
+                    f"robust_delta={_fmt_float(robust_delta)} "
+                    f"(95% CI {_fmt_ci(robust_ci_low, robust_ci_high)}), "
+                    f"effect_d={_fmt_float(robust_effect_d)}."
                 ),
                 "next_action": "If inconclusive, add seeds and compare with a fixed no-curriculum ablation group.",
+                "run_count": drift.get("run_count"),
+                "drift_score": drift_score,
+                "robust_delta": robust_delta,
+                "robust_ci_low": robust_ci_low,
+                "robust_ci_high": robust_ci_high,
+                "effect_d": robust_effect_d,
             }
         )
 
     return cards
 
 
-def _build_intervention_recommendations(
-    cards: List[Dict[str, str]],
+def _clip01(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+def _ci_width(ci_low: float | None, ci_high: float | None) -> float | None:
+    if ci_low is None or ci_high is None:
+        return None
+    return max(0.0, ci_high - ci_low)
+
+
+def _score_intervention(
+    expected_upside: float,
+    confidence: float,
+    downside_risk: float,
+) -> float:
+    upside_term = expected_upside * (0.6 + (0.4 * confidence))
+    risk_term = downside_risk * (0.5 + (0.5 * (1.0 - confidence)))
+    return upside_term - risk_term
+
+
+def _build_ranked_interventions(
+    cards: List[Dict[str, object]],
     rows: List[Dict[str, object]],
-) -> List[str]:
-    recommendations: List[str] = []
+    outcomes: List[Dict[str, object]] | None = None,
+) -> List[Dict[str, object]]:
+    del rows
+
+    outcome_by_family: Dict[str, Dict[str, object]] = {}
+    if outcomes:
+        for outcome in outcomes:
+            family = outcome.get("family")
+            if isinstance(family, str):
+                outcome_by_family[family] = outcome
 
     card_by_id = {
         str(card.get("id")): card
         for card in cards
         if isinstance(card.get("id"), str)
     }
-    failed_cards = [card for card in cards if card.get("status") == "FAIL"]
 
-    if failed_cards:
-        recommendations.append(
-            "Prioritize FAIL hypotheses before increasing world difficulty, horizon, or population cap."
-        )
+    candidates: List[Dict[str, object]] = []
 
     h1 = card_by_id.get("h1_curriculum")
     if h1 is not None:
-        status = h1.get("status")
-        if status == "FAIL":
-            recommendations.append(
-                "Extend matched curriculum vs no-curriculum ablation by at least 6 new seeds under fixed settings."
+        status = str(h1.get("status", "INCONCLUSIVE"))
+        n_curr = _safe_int(h1.get("n_curr")) or 0
+        n_base = _safe_int(h1.get("n_base")) or 0
+        n_total = n_curr + n_base
+        delta = _safe_float(h1.get("delta"))
+        effect_d = abs(_safe_float(h1.get("effect_d")) or 0.0)
+        ci_low = _safe_float(h1.get("delta_ci_low"))
+        ci_high = _safe_float(h1.get("delta_ci_high"))
+        ci_w = _ci_width(ci_low, ci_high)
+
+        sample_factor = _clip01(n_total / 50.0)
+        ci_precision = _clip01(1.0 - min(1.0, (ci_w or 1.0) / 0.6))
+        confidence = _clip01((0.6 * sample_factor) + (0.4 * ci_precision))
+
+        if status in {"FAIL", "INCONCLUSIVE"}:
+            expected_upside = _clip01(0.35 + min(0.45, abs(delta or 0.0) * 2.0) + min(0.2, effect_d / 3.0))
+            downside = 0.18 if status == "FAIL" else 0.12
+            action = "Run a matched curriculum-vs-baseline ablation extension (+8 seeds) under fixed settings."
+            rationale = (
+                "Curriculum uncertainty is still decision-critical; narrowing CI is likely to change world-regime policy decisions."
             )
-            _, best_group_rows, _ = _select_best_curriculum_group(rows)
-            curriculum_rows = [
-                row
-                for row in best_group_rows
-                if row.get("curriculum_enabled") is True and _safe_float(row.get("robustness_mean")) is not None
-            ]
-            ranked_curriculum = sorted(
-                curriculum_rows,
-                key=lambda row: _safe_float(row.get("robustness_mean")) or -1.0,
-            )
-            weakest_runs = [
-                str(row.get("run"))
-                for row in ranked_curriculum[:2]
-                if isinstance(row.get("run"), str)
-            ]
-            if weakest_runs:
-                recommendations.append(
-                    "Audit the weakest curriculum runs first: "
-                    f"{', '.join(weakest_runs)} "
-                    "(inspect generation_log/world_timeline for stage transitions and shock spikes)."
-                )
-        elif status == "INCONCLUSIVE":
-            recommendations.append(
-                "Increase matched seed count until both curriculum and baseline have at least 10 completed runs."
+            candidates.append(
+                {
+                    "action": action,
+                    "expected_upside": expected_upside,
+                    "confidence": confidence,
+                    "downside_risk": downside,
+                    "rationale": rationale,
+                    "source": "h1_curriculum",
+                }
             )
 
     h2 = card_by_id.get("h2_innovation")
-    if h2 is not None and h2.get("status") == "FAIL":
-        recommendations.append(
-            "Run a shock-probability sweep (for example 0.02, 0.03, 0.04) and confirm innovation-rich families still outperform."
+    if h2 is not None:
+        status = str(h2.get("status", "INCONCLUSIVE"))
+        n_rich = _safe_int(h2.get("n_rich")) or 0
+        n_sparse = _safe_int(h2.get("n_sparse")) or 0
+        n_total = n_rich + n_sparse
+        delta = _safe_float(h2.get("delta"))
+        effect_d = abs(_safe_float(h2.get("effect_d")) or 0.0)
+        ci_w = _ci_width(_safe_float(h2.get("delta_ci_low")), _safe_float(h2.get("delta_ci_high")))
+
+        sample_factor = _clip01(n_total / 100.0)
+        ci_precision = _clip01(1.0 - min(1.0, (ci_w or 1.2) / 1.5))
+        confidence = _clip01((0.7 * sample_factor) + (0.3 * ci_precision))
+
+        expected_upside = _clip01(0.2 + min(0.4, abs(delta or 0.0) / 2.0) + min(0.25, effect_d / 10.0))
+        downside = 0.22 if status == "PASS" else 0.16
+        action = "Execute a shock-probability sweep (0.02/0.03/0.04) to verify innovation advantage stability."
+        rationale = "Innovation gains are strong but need stress validation before being trusted as a general mechanism."
+        candidates.append(
+            {
+                "action": action,
+                "expected_upside": expected_upside,
+                "confidence": confidence,
+                "downside_risk": downside,
+                "rationale": rationale,
+                "source": "h2_innovation",
+            }
         )
 
     h3 = card_by_id.get("h3_survivorship")
     if h3 is not None:
-        status = h3.get("status")
-        if status == "FAIL":
-            recommendations.append(
-                "Rebalance fitness pressure toward alive_end and compare correlation again after a fixed 6-seed campaign."
-            )
-        elif status == "INCONCLUSIVE":
-            recommendations.append(
-                "Add seeds with wider survival outcomes so survivorship-vs-robustness correlation is measurable."
+        status = str(h3.get("status", "INCONCLUSIVE"))
+        corr = _safe_float(h3.get("corr"))
+        n_pairs = _safe_int(h3.get("n_pairs")) or 0
+        ci_w = _ci_width(_safe_float(h3.get("corr_ci_low")), _safe_float(h3.get("corr_ci_high")))
+
+        sample_factor = _clip01(n_pairs / 160.0)
+        ci_precision = _clip01(1.0 - min(1.0, (ci_w or 0.6) / 0.6))
+        confidence = _clip01((0.7 * sample_factor) + (0.3 * ci_precision))
+
+        if status in {"FAIL", "INCONCLUSIVE"}:
+            expected_upside = _clip01(0.25 + min(0.45, abs(corr or 0.0)) )
+            downside = 0.28
+            action = "Run a fitness-weight sweep on alive_end vs innovation terms and re-test robustness correlation."
+            rationale = "Reward-shaping leverage is high when survivorship linkage is weak or uncertain."
+            candidates.append(
+                {
+                    "action": action,
+                    "expected_upside": expected_upside,
+                    "confidence": confidence,
+                    "downside_risk": downside,
+                    "rationale": rationale,
+                    "source": "h3_survivorship",
+                }
             )
 
     h4 = card_by_id.get("h4_drift")
     if h4 is not None:
-        status = h4.get("status")
-        if status == "FAIL":
-            recommendations.append(
-                "Freeze environment settings for one campaign cycle, then re-introduce regime changes gradually to reduce unproductive drift."
+        status = str(h4.get("status", "INCONCLUSIVE"))
+        run_count = _safe_int(h4.get("run_count")) or 0
+        robust_delta = _safe_float(h4.get("robust_delta"))
+        effect_d = abs(_safe_float(h4.get("effect_d")) or 0.0)
+        ci_w = _ci_width(_safe_float(h4.get("robust_ci_low")), _safe_float(h4.get("robust_ci_high")))
+
+        sample_factor = _clip01(run_count / 60.0)
+        ci_precision = _clip01(1.0 - min(1.0, (ci_w or 7000.0) / 9000.0))
+        confidence = _clip01((0.65 * sample_factor) + (0.35 * ci_precision))
+
+        if status in {"FAIL", "INCONCLUSIVE"}:
+            expected_upside = _clip01(0.2 + min(0.35, abs((robust_delta or 0.0)) / 8000.0) + min(0.25, effect_d / 2.5))
+            downside = 0.2
+            action = "Run one fixed-setting stabilization cohort before introducing further ecology complexity."
+            rationale = "Controls drift while preserving the ability to attribute gains to concrete changes."
+            candidates.append(
+                {
+                    "action": action,
+                    "expected_upside": expected_upside,
+                    "confidence": confidence,
+                    "downside_risk": downside,
+                    "rationale": rationale,
+                    "source": "h4_drift",
+                }
             )
-        elif status == "INCONCLUSIVE":
-            recommendations.append(
-                "Collect another fixed-condition cohort and compare early-vs-late robust_delta before changing ecology complexity."
-            )
+
+    candidates.append(
+        {
+            "action": "Continue fixed-condition monitoring with periodic hypothesis refresh.",
+            "expected_upside": 0.18,
+            "confidence": 0.9,
+            "downside_risk": 0.06,
+            "rationale": "Maintains a stable baseline while higher-impact interventions are tested.",
+            "source": "baseline",
+        }
+    )
+
+    for candidate in candidates:
+        upside = _clip01(float(candidate["expected_upside"]))
+        confidence = _clip01(float(candidate["confidence"]))
+        downside = _clip01(float(candidate["downside_risk"]))
+
+        source = str(candidate.get("source", ""))
+        outcome = outcome_by_family.get(source)
+        if outcome:
+            outcome_status = str(outcome.get("status", "INCONCLUSIVE"))
+            outcome_effect = abs(_safe_float(outcome.get("effect_d")) or 0.0)
+            if outcome_status == "PASS":
+                upside = _clip01(upside + min(0.08, outcome_effect / 20.0))
+                downside = _clip01(max(0.0, downside - 0.04))
+            elif outcome_status == "FAIL":
+                upside = _clip01(max(0.0, upside - min(0.08, outcome_effect / 20.0)))
+                downside = _clip01(downside + 0.08)
+
+            outcome_runs = _safe_int(outcome.get("runs")) or 0
+            confidence = _clip01((0.85 * confidence) + (0.15 * _clip01(outcome_runs / 12.0)))
+
+            rationale = str(candidate.get("rationale", ""))
+            candidate["rationale"] = (
+                f"{rationale} Historical outcome status: {outcome_status} "
+                f"(delta={_fmt_float(_safe_float(outcome.get('delta')))})."
+            ).strip()
+
+        candidate["expected_upside"] = upside
+        candidate["confidence"] = confidence
+        candidate["downside_risk"] = downside
+        candidate["priority"] = _score_intervention(upside, confidence, downside)
+
+    deduped: List[Dict[str, object]] = []
+    seen_actions = set()
+    for candidate in sorted(candidates, key=lambda item: float(item["priority"]), reverse=True):
+        action = str(candidate.get("action", ""))
+        if not action or action in seen_actions:
+            continue
+        seen_actions.add(action)
+        deduped.append(candidate)
+
+    return deduped
+
+
+def _build_intervention_recommendations(
+    cards: List[Dict[str, object]],
+    rows: List[Dict[str, object]],
+) -> List[str]:
+    ranked = _build_ranked_interventions(cards=cards, rows=rows)
+    recommendations: List[str] = []
+    for item in ranked[:8]:
+        recommendations.append(
+            "[priority="
+            f"{float(item.get('priority', 0.0)):+.3f}; "
+            f"upside={float(item.get('expected_upside', 0.0)):.2f}; "
+            f"confidence={float(item.get('confidence', 0.0)):.2f}; "
+            f"risk={float(item.get('downside_risk', 0.0)):.2f}] "
+            f"{item.get('action')}"
+        )
 
     if not recommendations:
         recommendations.append(
             "No immediate intervention required; continue fixed-condition monitoring and periodic ablation checks."
         )
 
-    return _dedupe_limit(recommendations, max_items=8)
+    return recommendations
+
+
+def _base_training_params(rows: List[Dict[str, object]]) -> Dict[str, float | int]:
+    base = rows[0] if rows else {}
+
+    generations = _safe_int(base.get("generations")) or 40
+    eval_days = _safe_int(base.get("eval_days")) or 900
+    max_population = _safe_int(base.get("max_population")) or 220
+    world_difficulty = _safe_float(base.get("world_difficulty")) or 1.45
+    shock_prob = _safe_float(base.get("shock_probability")) or 0.02
+
+    return {
+        "generations": generations,
+        "eval_days": eval_days,
+        "max_population": max_population,
+        "world_difficulty": world_difficulty,
+        "shock_prob": shock_prob,
+        "robustness_seeds": 4,
+        "robustness_days": 300,
+        "robustness_founders": 24,
+        "checkpoint_every": 10,
+    }
+
+
+def _collect_used_seeds(rows: List[Dict[str, object]]) -> set[int]:
+    used: set[int] = set()
+    for row in rows:
+        summary = row.get("summary") if isinstance(row.get("summary"), dict) else {}
+        seed = _safe_int(summary.get("seed"))
+        if seed is not None:
+            used.add(seed)
+    return used
+
+
+def _reserve_seeds(used: set[int], count: int, start_seed: int = 29000) -> List[int]:
+    seeds: List[int] = []
+    candidate = start_seed
+    while len(seeds) < count:
+        if candidate not in used:
+            seeds.append(candidate)
+            used.add(candidate)
+        candidate += 1
+    return seeds
+
+
+def _single_train_command(
+    *,
+    seed_expr: str,
+    output_expr: str,
+    params: Dict[str, float | int],
+    curriculum: bool,
+    world_difficulty: float | None = None,
+    shock_prob: float | None = None,
+) -> str:
+    difficulty = world_difficulty if world_difficulty is not None else float(params["world_difficulty"])
+    shock = shock_prob if shock_prob is not None else float(params["shock_prob"])
+
+    cmd = (
+        ".venv/bin/python run_neat_training.py "
+        f"--generations {int(params['generations'])} "
+        f"--eval-days {int(params['eval_days'])} "
+        f"--max-population {int(params['max_population'])} "
+        f"--world-difficulty {difficulty:.3f} "
+        f"--shock-prob {shock:.3f} "
+        f"--robustness-seeds {int(params['robustness_seeds'])} "
+        f"--robustness-days {int(params['robustness_days'])} "
+        f"--robustness-founders {int(params['robustness_founders'])} "
+        f"--checkpoint-every {int(params['checkpoint_every'])} "
+        f"--seed {seed_expr} "
+        f"--output-dir {output_expr} "
+        "--no-auto-memory-sync"
+    )
+    if curriculum:
+        cmd += " --curriculum"
+    return cmd
+
+
+def _post_batch_commands() -> List[str]:
+    return [
+        ".venv/bin/python scripts/compare_neat_runs.py --require-full-generations",
+        ".venv/bin/python scripts/build_experiment_observatory.py",
+        ".venv/bin/python scripts/agi_memory_autosync.py --sync-once --force --outputs-dir outputs --wiki-dir wiki --max-runs 40 --require-full-generations",
+    ]
+
+
+def _intervention_family_from_run_name(run_name: str) -> str | None:
+    if run_name.startswith("h1_") or run_name.startswith("h1_match_"):
+        return "h1_curriculum"
+    if run_name.startswith("h2_"):
+        return "h2_innovation"
+    if run_name.startswith("h4_"):
+        return "h4_drift"
+    if run_name.startswith("monitor_"):
+        return "baseline"
+    return None
+
+
+def _compute_intervention_outcomes(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    ordered = _chronological_runs(rows)
+    family_events: Dict[str, List[Dict[str, object]]] = {}
+
+    for idx, row in enumerate(ordered):
+        run_name = str(row.get("run", ""))
+        family = _intervention_family_from_run_name(run_name)
+        robust = _safe_float(row.get("robustness_mean"))
+        if family is None or robust is None:
+            continue
+        family_events.setdefault(family, []).append(
+            {
+                "idx": idx,
+                "run": run_name,
+                "robustness_mean": robust,
+            }
+        )
+
+    outcomes: List[Dict[str, object]] = []
+    for family, events in family_events.items():
+        first_idx = min(int(event["idx"]) for event in events)
+
+        baseline_window = ordered[max(0, first_idx - 20):first_idx]
+        baseline_values = [
+            _safe_float(row.get("robustness_mean"))
+            for row in baseline_window
+            if _safe_float(row.get("robustness_mean")) is not None
+        ]
+        baseline_clean = [value for value in baseline_values if value is not None]
+
+        post_values = [
+            _safe_float(event.get("robustness_mean"))
+            for event in events
+            if _safe_float(event.get("robustness_mean")) is not None
+        ]
+        post_clean = [value for value in post_values if value is not None]
+
+        baseline_mean = mean(baseline_clean) if baseline_clean else None
+        post_mean = mean(post_clean) if post_clean else None
+
+        delta = None
+        if baseline_mean is not None and post_mean is not None:
+            delta = post_mean - baseline_mean
+
+        ci_low, ci_high = (None, None)
+        effect_d = None
+        if baseline_clean and post_clean:
+            ci_low, ci_high = _bootstrap_mean_diff_ci(post_clean, baseline_clean)
+            effect_d = _cohens_d(post_clean, baseline_clean)
+
+        if ci_low is not None and ci_high is not None:
+            if ci_low > 0:
+                status = "PASS"
+            elif ci_high < 0:
+                status = "FAIL"
+            else:
+                status = "INCONCLUSIVE"
+        else:
+            status = "INCONCLUSIVE"
+
+        outcomes.append(
+            {
+                "family": family,
+                "runs": len(post_clean),
+                "first_run": events[0]["run"] if events else None,
+                "baseline_mean": baseline_mean,
+                "post_mean": post_mean,
+                "delta": delta,
+                "delta_ci_low": ci_low,
+                "delta_ci_high": ci_high,
+                "effect_d": effect_d,
+                "status": status,
+            }
+        )
+
+    outcomes.sort(key=lambda item: str(item.get("family", "")))
+    return outcomes
+
+
+def _build_campaign_templates(
+    ranked_interventions: List[Dict[str, object]],
+    rows: List[Dict[str, object]],
+) -> List[Dict[str, object]]:
+    params = _base_training_params(rows)
+    used_seeds = _collect_used_seeds(rows)
+    templates: List[Dict[str, object]] = []
+
+    for item in ranked_interventions:
+        source = str(item.get("source", ""))
+        if source == "h1_curriculum":
+            nocurr_seeds = _reserve_seeds(used_seeds, count=4)
+            curr_seeds = _reserve_seeds(used_seeds, count=4)
+            commands: List[str] = []
+            commands.append(f"for s in {' '.join(str(seed) for seed in nocurr_seeds)}; do")
+            commands.append(
+                "  "
+                + _single_train_command(
+                    seed_expr='"$s"',
+                    output_expr='"outputs/h1_match_nocurr_${s}"',
+                    params=params,
+                    curriculum=False,
+                )
+                + ";"
+            )
+            commands.append("done")
+            commands.append("")
+            commands.append(f"for s in {' '.join(str(seed) for seed in curr_seeds)}; do")
+            commands.append(
+                "  "
+                + _single_train_command(
+                    seed_expr='"$s"',
+                    output_expr='"outputs/h1_match_curr_${s}"',
+                    params=params,
+                    curriculum=True,
+                )
+                + ";"
+            )
+            commands.append("done")
+            commands.extend(_post_batch_commands())
+
+            templates.append(
+                {
+                    "title": "Matched Curriculum Ablation Extension",
+                    "trigger": "h1_curriculum",
+                    "estimated_runs": 8,
+                    "objective": "Narrow uncertainty around curriculum-vs-baseline robustness under fixed settings.",
+                    "commands": commands,
+                }
+            )
+
+        elif source == "h2_innovation":
+            seeds = _reserve_seeds(used_seeds, count=6)
+            base_shock = float(params["shock_prob"])
+            shock_values = [base_shock, base_shock + 0.01, base_shock + 0.02]
+            shock_csv = " ".join(f"{value:.3f}" for value in shock_values)
+            seed_csv = " ".join(str(seed) for seed in seeds)
+
+            commands = []
+            commands.append(f"for shock in {shock_csv}; do")
+            commands.append(f"  for s in {seed_csv}; do")
+            commands.append(
+                "    "
+                + _single_train_command(
+                    seed_expr='"$s"',
+                    output_expr='"outputs/h2_shock_${shock}_${s}"',
+                    params=params,
+                    curriculum=False,
+                    shock_prob=float(params["shock_prob"]),
+                ).replace(f"--shock-prob {float(params['shock_prob']):.3f}", "--shock-prob \"$shock\"")
+                + ";"
+            )
+            commands.append("  done")
+            commands.append("done")
+            commands.extend(_post_batch_commands())
+
+            templates.append(
+                {
+                    "title": "Innovation Stress Sweep",
+                    "trigger": "h2_innovation",
+                    "estimated_runs": len(seeds) * len(shock_values),
+                    "objective": "Validate innovation-family robustness across increasing shock pressure.",
+                    "commands": commands,
+                }
+            )
+
+        elif source == "h4_drift":
+            seeds = _reserve_seeds(used_seeds, count=6)
+            commands = []
+            commands.append(f"for s in {' '.join(str(seed) for seed in seeds)}; do")
+            commands.append(
+                "  "
+                + _single_train_command(
+                    seed_expr='"$s"',
+                    output_expr='"outputs/h4_stabilize_nocurr_${s}"',
+                    params=params,
+                    curriculum=False,
+                )
+                + ";"
+            )
+            commands.append("done")
+            commands.extend(_post_batch_commands())
+
+            templates.append(
+                {
+                    "title": "Fixed-Setting Stabilization Cohort",
+                    "trigger": "h4_drift",
+                    "estimated_runs": 6,
+                    "objective": "Stabilize campaign drift attribution before adding new ecology complexity.",
+                    "commands": commands,
+                }
+            )
+
+    if not templates:
+        seeds = _reserve_seeds(used_seeds, count=2)
+        commands = []
+        commands.append(f"for s in {' '.join(str(seed) for seed in seeds)}; do")
+        commands.append(
+            "  "
+            + _single_train_command(
+                seed_expr='"$s"',
+                output_expr='"outputs/monitor_nocurr_${s}"',
+                params=params,
+                curriculum=False,
+            )
+            + ";"
+        )
+        commands.append("done")
+        commands.extend(_post_batch_commands())
+
+        templates.append(
+            {
+                "title": "Baseline Monitoring Mini-Batch",
+                "trigger": "baseline",
+                "estimated_runs": 2,
+                "objective": "Maintain signal continuity while waiting for stronger intervention triggers.",
+                "commands": commands,
+            }
+        )
+
+    return templates[:3]
 
 
 def _dedupe_limit(lines: List[str], max_items: int = 8) -> List[str]:
@@ -1243,6 +1901,75 @@ def build_report(outputs_dir: Path, report_path: Path) -> None:
             lines.append(f"- Status: {card['status']}")
             lines.append(f"- Evidence: {card['evidence']}")
             lines.append(f"- Next action: {card['next_action']}")
+            lines.append("")
+
+        intervention_outcomes = _compute_intervention_outcomes(selection_pool)
+        lines.append("## Intervention Outcome Tracking")
+        lines.append("")
+        lines.append("Observed post-intervention performance deltas compared to the immediate pre-intervention baseline window.")
+        lines.append("")
+        lines.append("| Family | Runs | Baseline Mean | Post Mean | Delta | Delta 95% CI | Effect d | Status |")
+        lines.append("| --- | ---: | ---: | ---: | ---: | --- | ---: | --- |")
+        if intervention_outcomes:
+            for outcome in intervention_outcomes:
+                lines.append(
+                    "| "
+                    f"{outcome.get('family')} | "
+                    f"{outcome.get('runs')} | "
+                    f"{_fmt_float(_safe_float(outcome.get('baseline_mean')))} | "
+                    f"{_fmt_float(_safe_float(outcome.get('post_mean')))} | "
+                    f"{_fmt_float(_safe_float(outcome.get('delta')))} | "
+                    f"{_fmt_ci(_safe_float(outcome.get('delta_ci_low')), _safe_float(outcome.get('delta_ci_high')))} | "
+                    f"{_fmt_float(_safe_float(outcome.get('effect_d')))} | "
+                    f"{outcome.get('status')} |"
+                )
+        else:
+            lines.append("| n/a | 0 | n/a | n/a | n/a | n/a | n/a | INCONCLUSIVE |")
+        lines.append("")
+
+        ranked_interventions = _build_ranked_interventions(
+            cards=cards,
+            rows=selection_pool,
+            outcomes=intervention_outcomes,
+        )
+
+        lines.append("## Intervention Ranking (Uncertainty-Aware)")
+        lines.append("")
+        lines.append("Expected upside, confidence, and downside risk are combined into a priority score.")
+        lines.append("")
+        lines.append("| Rank | Intervention | Upside | Confidence | Risk | Priority |")
+        lines.append("| --- | --- | ---: | ---: | ---: | ---: |")
+        if ranked_interventions:
+            for idx, item in enumerate(ranked_interventions[:8], start=1):
+                lines.append(
+                    "| "
+                    f"{idx} | "
+                    f"{item.get('action')} | "
+                    f"{float(item.get('expected_upside', 0.0)):.2f} | "
+                    f"{float(item.get('confidence', 0.0)):.2f} | "
+                    f"{float(item.get('downside_risk', 0.0)):.2f} | "
+                    f"{float(item.get('priority', 0.0)):+.3f} |"
+                )
+        else:
+            lines.append("| n/a | No ranked interventions available | 0.00 | 0.00 | 0.00 | +0.000 |")
+        lines.append("")
+
+        lines.append("## Ranked Campaign Templates (Executable)")
+        lines.append("")
+        lines.append("Top-ranked interventions are translated into command-ready campaign templates.")
+        lines.append("")
+        templates = _build_campaign_templates(ranked_interventions=ranked_interventions, rows=selection_pool)
+        for idx, template in enumerate(templates, start=1):
+            lines.append(f"### Template {idx}: {template.get('title')}")
+            lines.append("")
+            lines.append(f"- Trigger: {template.get('trigger')}")
+            lines.append(f"- Objective: {template.get('objective')}")
+            lines.append(f"- Estimated runs: {template.get('estimated_runs')}")
+            lines.append("")
+            lines.append("```bash")
+            for command in template.get("commands", []):
+                lines.append(str(command))
+            lines.append("```")
             lines.append("")
 
         lines.append("## Automatic Intervention Recommendations")
