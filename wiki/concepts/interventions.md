@@ -7,7 +7,7 @@ Source: [../../outputs/experiment_observatory.md](../../outputs/experiment_obser
 Prioritized actions generated from current hypothesis outcomes.
 
 - [priority=+0.605; upside=0.85; confidence=0.70; risk=0.22] Execute a shock-probability sweep (0.02/0.03/0.04) to verify innovation advantage stability.
-- [priority=+0.520; upside=0.62; confidence=0.86; risk=0.12] Run a matched curriculum-vs-baseline ablation extension (+8 seeds) under fixed settings.
+- [priority=+0.507; upside=0.61; confidence=0.86; risk=0.12] Run a matched curriculum-vs-baseline ablation extension (+8 seeds) under fixed settings.
 - [priority=+0.140; upside=0.18; confidence=0.90; risk=0.06] Continue fixed-condition monitoring with periodic hypothesis refresh.
 
 ## Run Evidence

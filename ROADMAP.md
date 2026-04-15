@@ -39,6 +39,7 @@ Now:
 - Completed a second innovation stress sweep (18 more runs at shock 0.020/0.030/0.040) with post-batch full sync/lint.
 - Completed a third innovation stress sweep (18 runs at shock 0.020/0.030/0.040 with fresh seeds) with post-batch full sync/lint.
 - Completed a fourth innovation stress sweep (18 runs at shock 0.020/0.030/0.040 with a second fresh seed window) with post-batch full sync/lint.
+- Completed a fifth innovation stress sweep (18 runs at shock 0.020/0.030/0.040 with a third fresh seed window) with post-batch full sync/lint.
 - Completed a higher-pressure H2 sweep (18 runs at shock 0.050/0.060/0.070) with post-batch full sync/lint.
 - Completed another matched curriculum ablation extension (+8 seeds) with post-batch full sync/lint.
 - Completed a second matched curriculum extension block (+8 seeds) with post-batch full sync/lint.
@@ -46,7 +47,7 @@ Now:
 - Completed a fourth matched curriculum extension block (+8 seeds; total +32 extension seeds across four blocks) with post-batch full sync/lint.
 - Completed a fifth matched curriculum extension block (+8 seeds; total +40 extension seeds across five blocks) with post-batch full sync/lint.
 - Completed H3 reward-weight sweep (alive_end vs innovation) with post-batch full sync/lint; higher alive_end weighting improved robustness and average survivorship, while innovation-heavy weighting underperformed.
-- Latest hypothesis snapshot keeps H1 INCONCLUSIVE and near-neutral (delta -7.7%, 95% CI [-18.6%, +2.2%]), while H2 remains PASS on rich-vs-sparse separation; H2 intervention-outcome tracking improved toward neutral but remains inconclusive, and ranking still favors another shock-stability sweep.
+- Latest hypothesis snapshot keeps H1 INCONCLUSIVE and near-neutral (delta -7.3%, 95% CI [-18.0%, +2.4%]), while H2 remains PASS on rich-vs-sparse separation but with a somewhat weaker gap than the previous refresh; H2 intervention-outcome tracking remains inconclusive and ranking still favors another shock-stability sweep.
 
 Next checkpoints:
 1. Continue ranked H2 shock-stability sweeps (0.02/0.03/0.04) until intervention-outcome confidence no longer crosses zero.
