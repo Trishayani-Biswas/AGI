@@ -41,6 +41,8 @@ class NeatTrainingConfig:
     robustness_days: int = 520
     robustness_founders: int = 26
     curriculum_enabled: bool = False
+    alive_end_weight: float = 4.5
+    innovation_weight: float = 9.0
 
 
 class NeatSurvivalTrainer:
@@ -133,6 +135,8 @@ class NeatSurvivalTrainer:
             "world_difficulty": cfg.world_difficulty,
             "shock_probability": cfg.shock_probability,
             "curriculum_enabled": cfg.curriculum_enabled,
+            "alive_end_weight": cfg.alive_end_weight,
+            "innovation_weight": cfg.innovation_weight,
             "resumed_from": str(resume_checkpoint) if resume_checkpoint is not None else None,
             "winner_fitness": float(winner.fitness if winner.fitness is not None else 0.0),
             "history_points": len(self.history),
@@ -882,7 +886,9 @@ class NeatSurvivalTrainer:
                 break
 
         alive_end = sum(1 for agent in agents.values() if agent.alive)
-        episode_score += (alive_end * 4.5) + (len(world.innovations) * 9.0)
+        episode_score += (alive_end * self.training_config.alive_end_weight) + (
+            len(world.innovations) * self.training_config.innovation_weight
+        )
         if extinction_day is not None:
             episode_score -= 40.0
 

@@ -37,12 +37,14 @@ Now:
 - Hard-mode seed campaign is active (A, B, C_fixed, D) with variance tracking.
 - Completed ranked intervention template execution for innovation stress sweep (18 runs at shock 0.020/0.030/0.040) with post-batch full sync/lint.
 - Completed another matched curriculum ablation extension (+8 seeds) with post-batch full sync/lint.
+- Completed a second matched curriculum extension block (+8 seeds) with post-batch full sync/lint.
+- Completed H3 reward-weight sweep (alive_end vs innovation) with post-batch full sync/lint; higher alive_end weighting improved robustness and average survivorship, while innovation-heavy weighting underperformed.
 - Latest hypothesis snapshot still shows curriculum underperforming fixed baseline in matched scope (H1 remains FAIL), while innovation-family intervention outcomes remain directionally positive but statistically inconclusive.
 
 Next checkpoints:
-1. Run the next matched curriculum extension block to tighten H1 confidence bounds further.
-2. Add an explicit H3 reward-weight sweep campaign (alive_end vs innovation pressure) and compare robustness/correlation shifts.
-3. Tune reward pressure and robustness protocol until variance drops.
+1. Decide whether to run one tighter H3 follow-up around the high-alive region or return capital to H1 if curriculum uncertainty is still worth shrinking.
+2. Tune reward pressure and robustness protocol until variance drops.
+3. Keep the compare/observatory/wiki loop running on each new batch.
 
 ## Priority 3: Open-Ended Ecology
 

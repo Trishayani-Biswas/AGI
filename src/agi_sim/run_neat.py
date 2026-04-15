@@ -27,6 +27,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--robustness-seeds", type=int, default=None, help="Number of unseen seeds for champion robustness test")
     parser.add_argument("--robustness-days", type=int, default=None, help="Days per unseen-seed robustness episode")
     parser.add_argument("--robustness-founders", type=int, default=None, help="Founders used in robustness episodes")
+    parser.add_argument("--alive-end-weight", type=float, default=None, help="Reward weight for alive agents at episode end")
+    parser.add_argument("--innovation-weight", type=float, default=None, help="Reward weight for discovered innovations")
     parser.add_argument("--curriculum", action="store_true", help="Enable staged world regimes to pressure broader adaptation")
     parser.add_argument(
         "--no-auto-memory-sync",
@@ -63,6 +65,10 @@ def build_config(args: argparse.Namespace) -> NeatTrainingConfig:
         cfg = replace(cfg, robustness_days=args.robustness_days)
     if args.robustness_founders is not None:
         cfg = replace(cfg, robustness_founders=args.robustness_founders)
+    if args.alive_end_weight is not None:
+        cfg = replace(cfg, alive_end_weight=args.alive_end_weight)
+    if args.innovation_weight is not None:
+        cfg = replace(cfg, innovation_weight=args.innovation_weight)
     if args.curriculum:
         cfg = replace(cfg, curriculum_enabled=True)
 

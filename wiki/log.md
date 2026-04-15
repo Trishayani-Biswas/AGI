@@ -1279,3 +1279,39 @@ Append-only timeline of wiki ingests and major updates.
 - robustness_mean: 39944.742
 - winner_fitness: 9811.049
 - curriculum_enabled: yes
+
+## [2026-04-15] ingest | h1_match_nocurr_29022
+
+- page: [runs/h1_match_nocurr_29022.md](runs/h1_match_nocurr_29022.md)
+- source: [../outputs/h1_match_nocurr_29022/summary.json](../outputs/h1_match_nocurr_29022/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41169.446
+- winner_fitness: 8812.727
+- curriculum_enabled: no
+
+## [2026-04-15] ingest | h1_match_curr_29026
+
+- page: [runs/h1_match_curr_29026.md](runs/h1_match_curr_29026.md)
+- source: [../outputs/h1_match_curr_29026/summary.json](../outputs/h1_match_curr_29026/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40229.431
+- winner_fitness: 11177.373
+- curriculum_enabled: yes
+
+## [2026-04-15] ingest | h1_match_curr_29029
+
+- page: [runs/h1_match_curr_29029.md](runs/h1_match_curr_29029.md)
+- source: [../outputs/h1_match_curr_29029/summary.json](../outputs/h1_match_curr_29029/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40083.266
+- winner_fitness: 10458.469
+- curriculum_enabled: yes
+
+## [2026-04-15] ingest | h3_reward_highalive_30005
+
+- page: [runs/h3_reward_highalive_30005.md](runs/h3_reward_highalive_30005.md)
+- source: [../outputs/h3_reward_highalive_30005/summary.json](../outputs/h3_reward_highalive_30005/summary.json)
+- full_generation_run: yes
+- robustness_mean: 42848.324
+- winner_fitness: 12541.498
+- curriculum_enabled: no
