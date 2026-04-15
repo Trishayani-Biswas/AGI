@@ -36,14 +36,16 @@ Mastery gate:
 Now:
 - Hard-mode seed campaign is active (A, B, C_fixed, D) with variance tracking.
 - Completed ranked intervention template execution for innovation stress sweep (18 runs at shock 0.020/0.030/0.040) with post-batch full sync/lint.
+- Completed a second innovation stress sweep (18 more runs at shock 0.020/0.030/0.040) with post-batch full sync/lint.
+- Completed a higher-pressure H2 sweep (18 runs at shock 0.050/0.060/0.070) with post-batch full sync/lint.
 - Completed another matched curriculum ablation extension (+8 seeds) with post-batch full sync/lint.
 - Completed a second matched curriculum extension block (+8 seeds) with post-batch full sync/lint.
 - Completed a third matched curriculum extension block (+8 seeds; total +24 extension seeds across three blocks) with post-batch full sync/lint.
 - Completed H3 reward-weight sweep (alive_end vs innovation) with post-batch full sync/lint; higher alive_end weighting improved robustness and average survivorship, while innovation-heavy weighting underperformed.
-- Latest hypothesis snapshot still shows curriculum underperforming fixed baseline in matched scope (H1 remains FAIL), but uncertainty has tightened toward inconclusive after the third extension (delta -10.5%, 95% CI [-24.8%, +1.3%]); innovation-family intervention outcomes remain directionally positive but statistically inconclusive.
+- Latest hypothesis snapshot still shows curriculum underperforming fixed baseline in matched scope (H1 remains FAIL), but uncertainty has tightened toward inconclusive after the latest refresh (delta -10.4%, 95% CI [-23.6%, +2.1%]); innovation-family intervention outcomes remain directionally positive but statistically inconclusive.
 
 Next checkpoints:
-1. Run one more matched H1 extension (+8 seeds) or pivot to H2 shock follow-up based on whether the team prioritizes resolving H1 uncertainty or stress-testing innovation gains.
+1. Decide whether to continue H2 with even higher shock pressure or return to H1 if curriculum uncertainty is still the tighter unknown.
 2. Tune reward pressure and robustness protocol until variance drops.
 3. Keep the compare/observatory/wiki loop running on each new batch.
 
