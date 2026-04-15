@@ -1360,3 +1360,39 @@ Append-only timeline of wiki ingests and major updates.
 - robustness_mean: 41577.217
 - winner_fitness: 11365.836
 - curriculum_enabled: no
+
+## [2026-04-15] ingest | h1_match_curr_29076
+
+- page: [runs/h1_match_curr_29076.md](runs/h1_match_curr_29076.md)
+- source: [../outputs/h1_match_curr_29076/summary.json](../outputs/h1_match_curr_29076/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41638.911
+- winner_fitness: 10052.470
+- curriculum_enabled: yes
+
+## [2026-04-15] ingest | h1_match_curr_29082
+
+- page: [runs/h1_match_curr_29082.md](runs/h1_match_curr_29082.md)
+- source: [../outputs/h1_match_curr_29082/summary.json](../outputs/h1_match_curr_29082/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41896.429
+- winner_fitness: 10071.900
+- curriculum_enabled: yes
+
+## [2026-04-15] ingest | h1_match_nocurr_29086
+
+- page: [runs/h1_match_nocurr_29086.md](runs/h1_match_nocurr_29086.md)
+- source: [../outputs/h1_match_nocurr_29086/summary.json](../outputs/h1_match_nocurr_29086/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40722.861
+- winner_fitness: 8417.582
+- curriculum_enabled: no
+
+## [2026-04-15] ingest | h1_match_curr_29093
+
+- page: [runs/h1_match_curr_29093.md](runs/h1_match_curr_29093.md)
+- source: [../outputs/h1_match_curr_29093/summary.json](../outputs/h1_match_curr_29093/summary.json)
+- full_generation_run: yes
+- robustness_mean: 41079.227
+- winner_fitness: 9054.105
+- curriculum_enabled: yes

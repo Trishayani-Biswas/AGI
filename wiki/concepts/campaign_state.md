@@ -2,13 +2,13 @@
 
 ## Current Snapshot
 
-- Total NEAT runs discovered: 320
-- Full-generation comparable runs: 320
+- Total NEAT runs discovered: 362
+- Full-generation comparable runs: 362
 - Best current run: [autopilot_live_nocurr_27032](../runs/autopilot_live_nocurr_27032.md)
 - Best robustness mean: 46370.700
 
 ## Largest Comparable Campaign
 
 - Scope: difficulty=1.450 shock=0.020 eval_days=900 max_population=220
-- Runs in scope: 220
-- Curriculum vs baseline robustness mean: 32446.047 vs 36192.028 (-10.4%)
+- Runs in scope: 244
+- Curriculum vs baseline robustness mean: 32663.424 vs 36101.130 (-9.5%)

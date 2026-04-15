@@ -1,11 +1,11 @@
-# Run: h1_match_nocurr_29009
+# Run: h1_match_nocurr_29086
 
 ## Snapshot
 
-- Rank by robustness: 37
+- Rank by robustness: 36
 - Completed full generations: yes (40/40)
-- Winner fitness: 9340.859
-- Robustness mean/min/max: 40719.385 / 40107.436 / 41398.847
+- Winner fitness: 8417.582
+- Robustness mean/min/max: 40722.861 / 36760.547 / 44283.548
 - World difficulty: 1.450
 - Shock probability: 0.020
 - Eval days: 900
@@ -14,9 +14,9 @@
 
 ## Raw Source Artifacts
 
-- [summary.json](../../outputs/h1_match_nocurr_29009/summary.json)
-- [robustness.json](../../outputs/h1_match_nocurr_29009/robustness.json)
-- [history.json](../../outputs/h1_match_nocurr_29009/history.json)
+- [summary.json](../../outputs/h1_match_nocurr_29086/summary.json)
+- [robustness.json](../../outputs/h1_match_nocurr_29086/robustness.json)
+- [history.json](../../outputs/h1_match_nocurr_29086/history.json)
 
 ## Interpretation
 
