@@ -1,7 +1,7 @@
 # AGI Wiki Lint Report
 
 - Wiki directory: /home/Jit-Paul-2008/Desktop/AGI/wiki
-- Markdown files scanned: 111
+- Markdown files scanned: 125
 - Broken links: 0
 - Orphan run pages: 0
 - Claim evidence issues: 0
