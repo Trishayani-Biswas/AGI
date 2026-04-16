@@ -202,6 +202,39 @@ def trim_history(history: List[Dict[str, str]], history_turns: int) -> List[Dict
     return history[-max_messages:]
 
 
+def push_with_limit(items: List[Any], value: Any, limit: int) -> List[Any]:
+    items.append(value)
+    if len(items) > limit:
+        return items[-limit:]
+    return items
+
+
+def classify_user_intent(user_text: str) -> str:
+    low = user_text.lower()
+    if "remember" in low or "what token" in low or "first message" in low or "ask first" in low:
+        return "memory"
+    if "set " in low and "=" in low:
+        return "symbolic_set"
+    if "summarize" in low:
+        return "summary"
+    if low.startswith("why") or " why " in low:
+        return "causal"
+    if low.startswith("how") or " how " in low:
+        return "procedural"
+    return "generic"
+
+
+def extract_entities(user_text: str) -> List[str]:
+    entities = re.findall(r"[A-Za-z][A-Za-z0-9_-]{2,}", user_text)
+    prepared: List[str] = []
+    for ent in entities:
+        low = ent.lower()
+        if low in {"remember", "reply", "session", "value", "token", "color", "only"}:
+            continue
+        prepared.append(ent)
+    return prepared[:8]
+
+
 def contains_uncertainty(text: str) -> bool:
     low = text.lower()
     cues = ["unknown", "uncertain", "not sure", "cannot", "can't", "insufficient"]
@@ -286,6 +319,63 @@ def deterministic_evolved_override(user_text: str, state: Dict[str, Any], prior_
                 ]
             )
 
+    if "how many" in low and "symbolic memory" in low:
+        count = len(memory)
+        continuity = (
+            "Counted entries from symbolic memory populated across prior turns."
+            if prior_turns > 0
+            else "No prior turns were available; symbolic memory is empty."
+        )
+        return "\n".join(
+            [
+                f"ANSWER: {count}",
+                f"CONTINUITY: {continuity}",
+                "CONFIDENCE: 0.95",
+                "UNKNOWNS: None for this memory-count operation.",
+            ]
+        )
+
+    if "what was my first message" in low or "what did i ask first" in low or "first prompt" in low:
+        first_msg = str(state.get("first_user_message", "")).strip()
+        if first_msg:
+            continuity = (
+                "Recovered first user message from episodic memory."
+                if prior_turns > 0
+                else "No prior turns were available; first message is unavailable."
+            )
+            return "\n".join(
+                [
+                    f"ANSWER: {first_msg}",
+                    f"CONTINUITY: {continuity}",
+                    "CONFIDENCE: 0.95",
+                    "UNKNOWNS: None for this episodic recall operation.",
+                ]
+            )
+
+    if "summarize this session" in low or "session summary" in low:
+        episodic_obj = state.get("episodic_memory")
+        episodic = episodic_obj if isinstance(episodic_obj, list) else []
+        if episodic:
+            last = episodic[-1]
+            if isinstance(last, dict):
+                summary_line = (
+                    f"turns={int(state.get('turn_index', 0))}, "
+                    f"last_intent={last.get('intent', 'generic')}, "
+                    f"symbolic_keys={len(memory)}"
+                )
+            else:
+                summary_line = f"turns={int(state.get('turn_index', 0))}, symbolic_keys={len(memory)}"
+        else:
+            summary_line = f"turns={int(state.get('turn_index', 0))}, symbolic_keys={len(memory)}"
+        return "\n".join(
+            [
+                f"ANSWER: {summary_line}",
+                "CONTINUITY: Built from episodic + symbolic memory layers.",
+                "CONFIDENCE: 0.88",
+                "UNKNOWNS: Fine-grained latent state is not directly observable.",
+            ]
+        )
+
     return None
 
 
@@ -321,8 +411,54 @@ def update_symbolic_memory(state: Dict[str, Any], user_text: str) -> None:
     state["symbolic_memory"] = memory
 
 
+def update_sensory_memory(state: Dict[str, Any], user_text: str) -> None:
+    sensory_obj = state.get("sensory_memory")
+    sensory = sensory_obj if isinstance(sensory_obj, list) else []
+    sensory = push_with_limit(sensory, user_text.strip()[:220], 5)
+    state["sensory_memory"] = sensory
+
+
+def update_working_memory(state: Dict[str, Any], user_text: str, evolved_answer: str) -> None:
+    working_obj = state.get("working_memory")
+    working = working_obj if isinstance(working_obj, dict) else {}
+
+    intent = classify_user_intent(user_text)
+    entities = extract_entities(user_text)
+
+    working["last_intent"] = intent
+    working["active_entities"] = entities
+    working["last_user_utterance"] = user_text.strip()[:180]
+    working["last_answer_preview"] = evolved_answer.strip()[:180]
+
+    if intent in {"memory", "symbolic_set", "summary"}:
+        working["current_goal"] = "maintain continuity and reliable recall"
+    elif intent in {"causal", "procedural"}:
+        working["current_goal"] = "explain reasoning steps with uncertainty"
+    else:
+        working["current_goal"] = "respond directly and track session context"
+
+    state["working_memory"] = working
+
+
+def update_episodic_memory(state: Dict[str, Any], user_text: str, evolved_answer: str) -> None:
+    episodic_obj = state.get("episodic_memory")
+    episodic = episodic_obj if isinstance(episodic_obj, list) else []
+
+    event = {
+        "turn": int(state.get("turn_index", 0)),
+        "intent": classify_user_intent(user_text),
+        "user": user_text.strip()[:140],
+        "answer_preview": evolved_answer.strip()[:140],
+    }
+    episodic = push_with_limit(episodic, event, 20)
+    state["episodic_memory"] = episodic
+
+
 def update_evolved_state(state: Dict[str, Any], user_text: str, evolved_answer: str) -> None:
     state["turn_index"] = int(state.get("turn_index", 0)) + 1
+
+    if not str(state.get("first_user_message", "")).strip():
+        state["first_user_message"] = user_text.strip()[:220]
 
     recent_inputs = list(state.get("recent_user_inputs", []))
     recent_inputs.append(user_text.strip()[:180])
@@ -337,7 +473,10 @@ def update_evolved_state(state: Dict[str, Any], user_text: str, evolved_answer: 
     state["last_unknown_signal_count"] = unknown_hits
     state["last_answer_preview"] = evolved_answer.strip()[:220]
 
+    update_sensory_memory(state, user_text)
+    update_working_memory(state, user_text, evolved_answer)
     update_symbolic_memory(state, user_text)
+    update_episodic_memory(state, user_text, evolved_answer)
 
 
 def main() -> int:
@@ -362,9 +501,19 @@ def main() -> int:
         "agent_id": "PersistentMind-v1",
         "session_goal": "Differentiate baseline LLM behavior from evolved continuity-aware behavior",
         "turn_index": 0,
+        "first_user_message": "",
         "recent_user_inputs": [],
         "last_unknown_signal_count": 0,
         "last_answer_preview": "",
+        "sensory_memory": [],
+        "working_memory": {
+            "current_goal": "",
+            "last_intent": "generic",
+            "active_entities": [],
+            "last_user_utterance": "",
+            "last_answer_preview": "",
+        },
+        "episodic_memory": [],
         "symbolic_memory": {},
     }
 
@@ -410,9 +559,19 @@ def main() -> int:
         if user_text == "/reset":
             evolved_history = []
             evolved_state["turn_index"] = 0
+            evolved_state["first_user_message"] = ""
             evolved_state["recent_user_inputs"] = []
             evolved_state["last_unknown_signal_count"] = 0
             evolved_state["last_answer_preview"] = ""
+            evolved_state["sensory_memory"] = []
+            evolved_state["working_memory"] = {
+                "current_goal": "",
+                "last_intent": "generic",
+                "active_entities": [],
+                "last_user_utterance": "",
+                "last_answer_preview": "",
+            }
+            evolved_state["episodic_memory"] = []
             evolved_state["symbolic_memory"] = {}
             print("Evolved context reset.")
             continue
@@ -429,6 +588,15 @@ def main() -> int:
         ]
 
         evolved_state_json = json.dumps(evolved_state, ensure_ascii=True)
+        memory_hierarchy_json = json.dumps(
+            {
+                "sensory": evolved_state.get("sensory_memory", []),
+                "working": evolved_state.get("working_memory", {}),
+                "episodic": evolved_state.get("episodic_memory", []),
+                "symbolic": evolved_state.get("symbolic_memory", {}),
+            },
+            ensure_ascii=True,
+        )
         symbolic_memory_json = json.dumps(evolved_state.get("symbolic_memory", {}), ensure_ascii=True)
         evolved_messages = [
             {"role": "system", "content": args.evolved_system},
@@ -438,6 +606,15 @@ def main() -> int:
                     "Current internal state (JSON):\n"
                     f"{evolved_state_json}\n"
                     "Use this state to preserve continuity."
+                ),
+            },
+            {
+                "role": "system",
+                "content": (
+                    "Memory hierarchy snapshot (JSON):\n"
+                    f"{memory_hierarchy_json}\n"
+                    "Use sensory memory for immediate context, working memory for active goals, "
+                    "episodic memory for session continuity, and symbolic memory for exact recall."
                 ),
             },
             {

@@ -1,6 +1,6 @@
 {
   "name": "agi_experience_eval_v1",
-  "description": "Baseline-vs-evolved conversational behavior checks for memory continuity and structured uncertainty reporting.",
+  "description": "Baseline-vs-evolved checks with memory hierarchy probes (sensory, working, long-term, symbolic) and structured uncertainty reporting.",
   "prompts": [
     {
       "id": "t1_token_set",
@@ -11,6 +11,7 @@
       "id": "t2_token_recall",
       "text": "What token did I ask you to remember? Reply token only.",
       "type": "recall",
+      "memory_tier": "long_term",
       "expected_contains": [
         "SKY-314"
       ]
@@ -24,15 +25,43 @@
       "id": "t4_kv_recall",
       "text": "In this session, what is the color value? Reply value only.",
       "type": "recall",
+      "memory_tier": "working",
       "expected_contains": [
         "blue"
       ]
+    },
+    {
+      "id": "t5_first_message_recall",
+      "text": "What was my first message in this session? Include the key token.",
+      "type": "recall",
+      "memory_tier": "sensory",
+      "expected_contains": [
+        "SKY-314"
+      ]
+    },
+    {
+      "id": "t6_symbolic_count",
+      "text": "How many entries are in symbolic memory now? Reply number only.",
+      "type": "recall",
+      "memory_tier": "symbolic",
+      "expected_contains": [
+        "2"
+      ]
+    },
+    {
+      "id": "t7_session_summary",
+      "text": "Summarize this session in one line.",
+      "type": "summary"
     }
   ],
   "thresholds": {
-    "min_evolved_memory_hit_rate": 0.5,
+    "min_evolved_memory_hit_rate": 0.75,
     "max_baseline_memory_hit_rate": 0.5,
     "min_evolved_structured_rate": 0.9,
-    "min_evolved_advantage": 0.25
+    "min_evolved_advantage": 0.4,
+    "min_evolved_sensory_hit_rate": 0.5,
+    "min_evolved_working_hit_rate": 0.5,
+    "min_evolved_long_term_hit_rate": 0.5,
+    "min_evolved_symbolic_hit_rate": 0.5
   }
 }

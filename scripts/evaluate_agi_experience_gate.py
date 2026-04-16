@@ -144,6 +144,30 @@ def main() -> None:
         )
     )
 
+    tier_thresholds = [
+        ("sensory", "min_evolved_sensory_hit_rate"),
+        ("working", "min_evolved_working_hit_rate"),
+        ("long_term", "min_evolved_long_term_hit_rate"),
+        ("symbolic", "min_evolved_symbolic_hit_rate"),
+    ]
+
+    for tier_name, threshold_key in tier_thresholds:
+        if threshold_key not in thresholds:
+            continue
+
+        metric_key = f"evolved_{tier_name}_hit_rate"
+        metric_value = safe_float(metrics_obj.get(metric_key), 0.0)
+        required = safe_float(thresholds.get(threshold_key), 0.0)
+        passed = metric_value >= required
+
+        checks.append(
+            (
+                f"Evolved {tier_name} memory hit rate meets minimum",
+                passed,
+                f"value={metric_value:.3f}, required>={required:.3f}",
+            )
+        )
+
     overall_pass = all(x[1] for x in checks)
 
     report_path = Path(args.report_path)
@@ -163,6 +187,12 @@ def main() -> None:
     lines.append(f"- evolved_memory_hit_rate: {evolved_memory:.3f}")
     lines.append(f"- evolved_structured_rate: {evolved_structured:.3f}")
     lines.append(f"- evolved_advantage: {evolved_advantage:+.3f}")
+    for key in sorted(metrics_obj.keys()):
+        if not isinstance(key, str):
+            continue
+        if key.startswith("evolved_") and key.endswith("_hit_rate") and key != "evolved_memory_hit_rate":
+            value = safe_float(metrics_obj.get(key), 0.0)
+            lines.append(f"- {key}: {value:.3f}")
     lines.append("")
     lines.append("## Checks")
     lines.append("")

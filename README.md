@@ -219,7 +219,14 @@ For the most reliable behavior, run the script directly (or with `bash`), not th
 Use this mode to feel the difference directly: each prompt prints two answers.
 
 - `baseline>`: stateless standard assistant behavior
-- `evolved>`: continuity-aware session behavior with explicit uncertainty tracking structure
+- `evolved>`: continuity-aware session behavior with memory hierarchy + explicit uncertainty tracking structure
+
+Implemented memory hierarchy in evolved mode:
+
+- sensory memory: recent raw user turns
+- working memory: active goal + intent + entities
+- episodic memory: compact per-turn events
+- symbolic memory: exact key/value/token recall
 
 ```bash
 bash ./scripts/start_experience_env.sh --model deepseek-r1:1.5b --session-name exp1
@@ -245,7 +252,7 @@ bash ./scripts/start_experience_env.sh --model qwen2.5:3b --session-name exp_qwe
 
 ### 5. AGI experience benchmark + gate
 
-This pipeline measures whether the evolved mode is actually outperforming baseline on recall and continuity behavior.
+This pipeline measures whether evolved mode is actually outperforming baseline on recall and continuity behavior across memory tiers.
 
 Run benchmark:
 
@@ -262,6 +269,13 @@ Run gate on latest/selected summary:
 Config and thresholds:
 
 - `configs/agi_experience_eval.json`
+
+Tier checks in benchmark:
+
+- sensory recall
+- working-memory recall
+- long-term token recall
+- symbolic memory operations
 
 Output artifacts:
 
