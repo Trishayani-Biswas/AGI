@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "baseline_candidate_id": "local_baseline",
+  "thresholds": {
+    "alive_ratio_improvement_min": 0.02,
+    "max_extinction_rate_delta": 0.0,
+    "min_days_ratio_multiplier": 1.0,
+    "min_innovation_ratio_multiplier": 1.0,
+    "min_run_success_rate_delta": 0.0
+  }
+}

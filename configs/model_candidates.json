@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "default_outputs_root": "outputs/model_evals",
+  "candidates": [
+    {
+      "id": "local_baseline",
+      "description": "Current repository baseline proposer/critic pair.",
+      "host": "local",
+      "mode": "llm",
+      "proposer_model": "llama3.2:3b",
+      "critic_model": "qwen2.5:3b",
+      "notes": "Use this as the baseline when comparing newer local or hosted candidates."
+    },
+    {
+      "id": "local_alt_reasoning",
+      "description": "Alternative local pair with stronger critic pressure.",
+      "host": "local",
+      "mode": "llm",
+      "proposer_model": "qwen2.5:3b",
+      "critic_model": "llama3.1:8b",
+      "notes": "Candidate intended for local-first comparative runs."
+    },
+    {
+      "id": "offline_heuristic_baseline",
+      "description": "Heuristic fallback policy (no LLM calls) for pipeline smoke and sanity checks.",
+      "host": "local",
+      "mode": "offline",
+      "notes": "Useful for validating evaluation and data-curation scripts even without model runtime."
+    }
+  ]
+}

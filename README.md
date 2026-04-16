@@ -117,6 +117,24 @@ That is the purpose of the Stage 2 NEAT pipeline in this repo.
 - `scripts/build_experiment_observatory.py`
 : generates a watch-oriented scientific report from output artifacts.
 
+- `scripts/run_model_eval.py`
+: runs seeded local simulation sweeps for a configured proposer/critic candidate and writes aggregate evaluation metrics.
+
+- `scripts/build_model_comparison_matrix.py`
+: builds a markdown comparison matrix across evaluated candidates for quick baseline-vs-candidate review.
+
+- `scripts/evaluate_model_gate.py`
+: enforces pass/fail adoption gates so only candidates that beat baseline thresholds are promoted.
+
+- `scripts/curate_finetune_dataset.py`
+: curates high-survivor and failure examples from simulation traces and emits fine-tune readiness reports.
+
+- `configs/model_candidates.json`
+: source-of-truth candidate registry for local and optional hosted model comparisons.
+
+- `configs/model_adoption_gate.json`
+: threshold policy for model adoption decisions.
+
 - `configs/neat_survival.ini`
 : NEAT topology/mutation configuration.
 
@@ -276,13 +294,74 @@ Current evidence snapshot from the latest observatory refresh:
 - Recommendation order remains stable: shock-stability sweep first (priority `+0.605`) with matched H1 extension second (priority `+0.506`).
 
 Next best stage from this snapshot:
+
 - continue ranked H2 shock-stability sweeps (0.02/0.03/0.04) until intervention-outcome confidence no longer crosses zero
 - alternate with matched H1 +8 extensions when H1 uncertainty remains the tighter unresolved decision boundary
+
+### AI Toolkit local-first model loop (implemented)
+
+Use AI Toolkit for model discovery/debug, then use local scripts for reproducible gate-based adoption.
+
+Open AI Toolkit features from Command Palette:
+
+- `ai-mlstudio.models` (Model Catalog)
+- `ai-mlstudio.modelPlayground` (Model Playground)
+- `ai-mlstudio.openTestTool` (Agent Inspector)
+
+Run baseline candidate evaluation:
+
+```bash
+.venv/bin/python scripts/run_model_eval.py \
+  --candidate-id local_baseline \
+  --seeds 41001,41002,41003,41004 \
+  --days 240 \
+  --population 12
+```
+
+Run additional candidate evaluation:
+
+```bash
+.venv/bin/python scripts/run_model_eval.py \
+  --candidate-id local_alt_reasoning \
+  --seeds 41001,41002,41003,41004 \
+  --days 240 \
+  --population 12
+```
+
+Build model comparison matrix:
+
+```bash
+.venv/bin/python scripts/build_model_comparison_matrix.py
+```
+
+Apply strict adoption gate (candidate must beat baseline thresholds):
+
+```bash
+.venv/bin/python scripts/evaluate_model_gate.py --candidate-id local_alt_reasoning
+```
+
+Curate fine-tune dataset from run traces (high-survivor + failure episodes):
+
+```bash
+.venv/bin/python scripts/curate_finetune_dataset.py \
+  --inputs-root outputs/model_evals \
+  --dataset-path outputs/finetune/llm_actions_sft.jsonl \
+  --schema-path outputs/finetune/llm_actions_schema.json \
+  --report-path outputs/finetune/readiness_report.md
+```
+
+What the loop guarantees:
+
+- local-first comparative evaluations before hosted model adoption
+- explicit pass/fail gate for candidate promotion
+- fine-tune dataset quality checks before any tuning run
+- reproducible command logs per seed in `outputs/model_evals/<candidate_id>/seed_<seed>/command.log`
 
 ### Build persistent AGI wiki memory (Karpathy LLM Wiki pattern)
 
 Authoritative reference idea file:
-- https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+
+- <https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f>
 
 This project now includes a local wiki layer that compiles run evidence into structured markdown pages.
 It follows the 3-layer model:

@@ -2,8 +2,8 @@
 
 ## Current Snapshot
 
-- Total NEAT runs discovered: 442
-- Full-generation comparable runs: 442
+- Total NEAT runs discovered: 446
+- Full-generation comparable runs: 444
 - Best current run: [autopilot_live_nocurr_27032](../runs/autopilot_live_nocurr_27032.md)
 - Best robustness mean: 46370.700
 

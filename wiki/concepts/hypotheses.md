@@ -15,13 +15,13 @@ These are machine-evaluated research hypotheses with explicit status and next ac
 ### H2: Innovation-Rich Policies Outperform Innovation-Sparse Policies
 
 - Status: PASS
-- Evidence: n_rich=162, n_sparse=21; innovation_rich_mean=38002.841, innovation_sparse_mean=8332.433, delta=+356.1% (95% CI [+236.7%, +578.6%]); mean_diff_CI=[26704.904, 32329.597]; effect_d=6.485.
+- Evidence: n_rich=162, n_sparse=23; innovation_rich_mean=38002.841, innovation_sparse_mean=8351.722, delta=+355.0% (95% CI [+251.1%, +529.1%]); mean_diff_CI=[27176.132, 32167.494]; effect_d=6.516.
 - Next action: Check if innovation gains persist when shock probability is increased.
 
 ### H3: Survivorship Correlates With Robustness
 
 - Status: PASS
-- Evidence: pearson_corr(mean_alive_end, robustness_mean)=+0.916 (95% CI [0.899, 0.930]) across 440 runs; r_squared=0.839.
+- Evidence: pearson_corr(mean_alive_end, robustness_mean)=+0.919 (95% CI [0.903, 0.932]) across 442 runs; r_squared=0.845.
 - Next action: Use this signal to tune fitness weighting for alive_end vs innovation pressure.
 
 ### H4: Campaign Drift Is Productive
