@@ -383,6 +383,8 @@ Use this benchmark to test whether responses stay correct and stable under promp
 .venv/bin/python scripts/run_random_reasoning_benchmark.py \
   --model qwen2.5:0.5b \
   --max-tokens 128 \
+  --temperature 0.2 \
+  --top-p 0.9 \
   --max-questions 15 \
   --run-tag random_reasoning_full
 ```
@@ -394,6 +396,8 @@ High-capability profile (stronger local model + longer timeout):
   --model qwen2.5:7b \
   --timeout-s 90 \
   --max-tokens 128 \
+  --temperature 0.2 \
+  --top-p 0.9 \
   --max-questions 15 \
   --run-tag random_reasoning_highcap
 ```
@@ -405,6 +409,8 @@ Optional ablation flags for controlled studies:
   --model qwen2.5:7b \
   --timeout-s 90 \
   --max-tokens 128 \
+  --temperature 0.2 \
+  --top-p 0.9 \
   --max-questions 15 \
   --disable-intervention-pass \
   --run-tag random_reasoning_no_intervention
@@ -443,6 +449,8 @@ Automatic promotion control (benchmark + strict gate + decision artifact):
   --model qwen2.5:7b \
   --timeout-s 90 \
   --max-tokens 128 \
+  --temperature 0.2 \
+  --top-p 0.9 \
   --max-questions 15 \
   --run-tag random_reasoning_candidate_auto \
   --baseline-summary outputs/random_reasoning_benchmark/random_reasoning_intervention_baseline_qwen05b_full_v1/summary.json
@@ -484,12 +492,73 @@ Current high-capability sample (`random_reasoning_live_qwen25_7b_v2`, 6 question
 - pattern risk index: `0.000`
 - strict reasoning gate returns `PASS` (`random_reasoning_gate_qwen25_7b_v2.md`)
 
+Latest intervention-enabled baseline (`random_reasoning_intervention_baseline_qwen05b_full_v1`, 15 questions):
+
+- base accuracy: `0.333`
+- paraphrase accuracy: `0.000`
+- intervention accuracy: `0.400`
+- anchor vulnerability rate: `0.200`
+- repair accuracy: `0.333`
+- consistency rate: `0.333`
+- pattern risk index: `0.723`
+- strict gate result: `FAIL` (`random_reasoning_intervention_baseline_qwen05b_full_v1/gate_report.md`)
+
+Latest fast candidate campaign (`deepseek-r1:1.5b`, intervention-enabled):
+
+- calibrated single-run candidate (`random_reasoning_intervention_candidate_ds15b_calibrated_v1`, 6 questions):
+  - base accuracy: `0.667`
+  - paraphrase accuracy: `0.667`
+  - intervention accuracy: `0.667`
+  - anchor vulnerability rate: `0.250`
+  - repair accuracy: `1.000`
+  - consistency rate: `0.500`
+  - pattern risk index: `0.317`
+  - strict gate result: `FAIL` (only consistency check still below threshold `0.7`)
+- fast compatibility profile (`random_reasoning_intervention_candidate_ds15b_fast_v2`, 6 questions):
+  - base accuracy: `0.000`
+  - paraphrase accuracy: `0.000`
+  - intervention accuracy: `0.167`
+  - repair accuracy: `0.200`
+  - consistency rate: `0.333`
+  - pattern risk index: `0.878`
+  - strict gate result: `FAIL` (absolute and baseline-delta)
+- 3-seed robustness summary (`random_reasoning_intervention_candidate_ds15b_fast_multiseed_v3_summary.md`):
+  - gate pass-rate vs baseline: `0.000`
+  - mean base accuracy: `0.111`
+  - mean paraphrase accuracy: `0.278`
+  - mean intervention accuracy: `0.111`
+  - mean repair accuracy: `0.200`
+  - mean consistency rate: `0.333`
+  - mean pattern risk index: `0.798`
+  - promotion verdict remains `reject`
+- automated promotion pipeline (`random_reasoning_auto_candidate_ds15b_fast_v2/promotion_decision.json`) currently returns `promoted=false`
+
+Short consistency-focused decoding sweep around calibrated profile (thresholds unchanged):
+
+- sweep summary: `outputs/random_reasoning_benchmark/decoding_sweep_consistency_short_v1.md`
+- tested points (all with `temperature=0.0`, `max_tokens=256`, `max_questions=6`, `seed=42`):
+  - `top_p=0.2`
+  - `top_p=0.3`
+  - `top_p=0.4`
+- all three points produced the same aggregate behavior:
+  - base accuracy: `0.833`
+  - paraphrase accuracy: `0.600`
+  - intervention accuracy: `1.000`
+  - repair accuracy: `0.800`
+  - consistency: `0.600`
+  - pattern risk index: `0.240`
+- strict full gate verdict for all points: `FAIL` and `promoted=false`
+- failure causes with thresholds unchanged:
+  - paired request success `0.833 < 0.95`
+  - consistency `0.600 < 0.700`
+
 Notes:
 
 - runner now separates API availability failures from reasoning failures
 - runner supports Ollama endpoint fallback (`/api/chat` to `/api/generate`) for compatibility
 - runner now includes a reflection repair pass and repair-aware metrics (`repair_accuracy_scored`, `repair_gain_vs_best_of_two`)
 - runner now includes a misleading-anchor intervention pass and causal robustness metrics (`intervention_accuracy_scored`, `intervention_delta_vs_base`, `anchor_vulnerability_rate`)
+- runner now supports token-capped decoding (`--max-tokens`) and chat `think=false` mode for better reasoning-model compatibility
 
 Generated artifacts:
 

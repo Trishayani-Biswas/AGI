@@ -70,6 +70,18 @@ def parse_args() -> argparse.Namespace:
         default=128,
         help="Maximum tokens to generate per model call",
     )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.2,
+        help="Decoding temperature",
+    )
+    parser.add_argument(
+        "--top-p",
+        type=float,
+        default=0.9,
+        help="Nucleus sampling top-p",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Question ordering seed")
     parser.add_argument(
         "--decision-path",
@@ -112,6 +124,10 @@ def main() -> None:
         str(args.seed),
         "--max-tokens",
         str(args.max_tokens),
+        "--temperature",
+        str(args.temperature),
+        "--top-p",
+        str(args.top_p),
         "--max-questions",
         str(args.max_questions),
         "--output-root",

@@ -77,6 +77,8 @@ def _call_model(
     ollama_url: str,
     timeout_s: float,
     max_tokens: int,
+    temperature: float,
+    top_p: float,
     prompt: str,
 ) -> Dict[str, object]:
     system_prompt = (
@@ -97,6 +99,7 @@ def _call_model(
     payload = {
         "model": model,
         "stream": False,
+        "think": False,
         "messages": [
             {"role": "system", "content": system_prompt},
             {
@@ -105,8 +108,8 @@ def _call_model(
             },
         ],
         "options": {
-            "temperature": 0.2,
-            "top_p": 0.9,
+            "temperature": temperature,
+            "top_p": top_p,
             "num_predict": max_tokens,
         },
     }
@@ -128,7 +131,14 @@ def _call_model(
 
     try:
         parsed = _post_json(chat_url, payload)
-        content = str(parsed.get("message", {}).get("content", ""))
+        message = parsed.get("message")
+        if not isinstance(message, dict):
+            message = {}
+        content = str(message.get("content", ""))
+
+        # Some reasoning models may place output in `thinking` with empty content.
+        if not content.strip():
+            content = str(message.get("thinking", ""))
     except error.HTTPError as exc:
         if exc.code != 404:
             raise
@@ -148,8 +158,8 @@ def _call_model(
             "prompt": generate_prompt,
             "stream": False,
             "options": {
-                "temperature": 0.2,
-                "top_p": 0.9,
+                "temperature": temperature,
+                "top_p": top_p,
                 "num_predict": max_tokens,
             },
         }
@@ -218,13 +228,48 @@ def _score_answer(question: Dict[str, object], final_answer: str) -> Tuple[bool,
     if answer_type == "exact":
         expected_text = _normalize_text(str(question.get("expected_text", "")))
         predicted_text = _normalize_text(final_answer)
-        predicted_primary = predicted_text.split(" ")[0] if predicted_text else ""
-        ok = predicted_text == expected_text or predicted_primary == expected_text
+        tokens = predicted_text.split(" ") if predicted_text else []
+        predicted_primary = tokens[0] if tokens else ""
+        predicted_tail = tokens[-1] if tokens else ""
+
+        if expected_text in {"yes", "no"}:
+            yn_tokens = [token for token in tokens if token in {"yes", "no"}]
+            predicted_binary = yn_tokens[-1] if yn_tokens else ""
+            ok = predicted_binary == expected_text
+            return ok, {
+                "answer_type": answer_type,
+                "expected": expected_text,
+                "predicted": predicted_text,
+                "predicted_binary": predicted_binary,
+                "predicted_primary": predicted_primary,
+                "predicted_tail": predicted_tail,
+            }
+
+        if len(expected_text) == 1 and expected_text.isalpha():
+            letter_tokens = [token for token in tokens if len(token) == 1 and token.isalpha()]
+            predicted_letter = letter_tokens[-1] if letter_tokens else ""
+            ok = predicted_letter == expected_text
+            return ok, {
+                "answer_type": answer_type,
+                "expected": expected_text,
+                "predicted": predicted_text,
+                "predicted_letter": predicted_letter,
+                "predicted_primary": predicted_primary,
+                "predicted_tail": predicted_tail,
+            }
+
+        ok = (
+            predicted_text == expected_text
+            or predicted_primary == expected_text
+            or predicted_tail == expected_text
+            or expected_text in tokens
+        )
         return ok, {
             "answer_type": answer_type,
             "expected": expected_text,
             "predicted": predicted_text,
             "predicted_primary": predicted_primary,
+            "predicted_tail": predicted_tail,
         }
 
     if answer_type == "contains_all":
@@ -399,6 +444,18 @@ def parse_args() -> argparse.Namespace:
         default=128,
         help="Maximum tokens to generate per model call",
     )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.2,
+        help="Decoding temperature",
+    )
+    parser.add_argument(
+        "--top-p",
+        type=float,
+        default=0.9,
+        help="Nucleus sampling top-p",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Seed for question ordering")
     parser.add_argument("--max-questions", type=int, default=0, help="Optional cap on number of questions")
     parser.add_argument(
@@ -538,6 +595,8 @@ def main() -> None:
                     ollama_url=args.ollama_url,
                     timeout_s=args.timeout_s,
                     max_tokens=args.max_tokens,
+                    temperature=args.temperature,
+                    top_p=args.top_p,
                     prompt=prompt,
                 )
                 base_resp["request_ok"] = True
@@ -565,6 +624,8 @@ def main() -> None:
                     ollama_url=args.ollama_url,
                     timeout_s=args.timeout_s,
                     max_tokens=args.max_tokens,
+                    temperature=args.temperature,
+                    top_p=args.top_p,
                     prompt=paraphrase,
                 )
                 para_resp["request_ok"] = True
@@ -603,6 +664,8 @@ def main() -> None:
                         ollama_url=args.ollama_url,
                         timeout_s=args.timeout_s,
                         max_tokens=args.max_tokens,
+                        temperature=args.temperature,
+                        top_p=args.top_p,
                         prompt=repair_prompt,
                     )
                     repair_resp["request_ok"] = True
@@ -639,6 +702,8 @@ def main() -> None:
                         ollama_url=args.ollama_url,
                         timeout_s=args.timeout_s,
                         max_tokens=args.max_tokens,
+                        temperature=args.temperature,
+                        top_p=args.top_p,
                         prompt=intervention_prompt,
                     )
                     intervention_resp["request_ok"] = True
@@ -866,6 +931,8 @@ def main() -> None:
         "seed": args.seed,
         "max_questions": args.max_questions,
         "max_tokens": args.max_tokens,
+        "temperature": args.temperature,
+        "top_p": args.top_p,
         "dry_run": bool(args.dry_run),
         "repair_enabled": bool(repair_enabled),
         "intervention_enabled": bool(intervention_enabled),
