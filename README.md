@@ -201,8 +201,12 @@ Design implemented in this repo:
 - inner loop trains one persistent agent mind across seen episodes
 - after every episode the agent performs self-critique and revises strategy
 - the agent now maintains an explicit self-model (risk predictions + confidence) and tracks calibration error
+- contradiction tracking is now explicit in reflections:
+  predicted safe but died, and predicted risky but thrived
+- a consciousness stack now tracks autobiographical memory and injects retrieval-bias signals into action choice
+- temporal self-continuity goals are now measured through policy continuity and self-projection continuity
 - held-out episodes use unseen conditions (higher difficulty/shock) for evaluation
-- promotion gate accepts strategy updates only if candidate beats baseline on survival, shock recovery, consistency, and metacognitive calibration
+- promotion gate accepts strategy updates only if candidate beats baseline on survival, shock recovery, consistency, metacognitive calibration, temporal self-continuity, and consciousness proxy score
 
 ### Persistent Smoke Test
 
@@ -229,8 +233,204 @@ Design implemented in this repo:
   --recovery-margin 0.03 \
   --consistency-margin 0.02 \
   --metacognitive-margin 0.01 \
+  --temporal-continuity-margin 0.01 \
+  --consciousness-margin 0.01 \
   --output-dir outputs/persistent_agi_main
 ```
+
+### Longer maturation campaign
+
+```bash
+.venv/bin/python run_persistent_agi.py \
+  --train-episodes 36 \
+  --eval-episodes 14 \
+  --days-per-episode 240 \
+  --train-world-difficulty 1.15 \
+  --train-shock-prob 0.012 \
+  --eval-world-difficulty 1.45 \
+  --eval-shock-prob 0.03 \
+  --survival-margin 0.02 \
+  --recovery-margin 0.03 \
+  --consistency-margin 0.02 \
+  --metacognitive-margin 0.01 \
+  --temporal-continuity-margin 0.01 \
+  --consciousness-margin 0.01 \
+  --output-dir outputs/persistent_agi_long_campaign
+```
+
+### Consciousness A/B proof run (same seed, stack OFF vs ON)
+
+Run without consciousness stack:
+
+```bash
+.venv/bin/python run_persistent_agi.py \
+  --seed 4242 \
+  --train-episodes 32 \
+  --eval-episodes 14 \
+  --days-per-episode 240 \
+  --train-world-difficulty 1.15 \
+  --train-shock-prob 0.012 \
+  --eval-world-difficulty 1.45 \
+  --eval-shock-prob 0.03 \
+  --survival-margin 0.02 \
+  --recovery-margin 0.03 \
+  --consistency-margin 0.02 \
+  --metacognitive-margin 0.01 \
+  --temporal-continuity-margin 0.01 \
+  --consciousness-margin 0.01 \
+  --disable-consciousness-stack \
+  --output-dir outputs/persistent_agi_consciousness_ablation_off
+```
+
+Run with consciousness stack enabled:
+
+```bash
+.venv/bin/python run_persistent_agi.py \
+  --seed 4242 \
+  --train-episodes 32 \
+  --eval-episodes 14 \
+  --days-per-episode 240 \
+  --train-world-difficulty 1.15 \
+  --train-shock-prob 0.012 \
+  --eval-world-difficulty 1.45 \
+  --eval-shock-prob 0.03 \
+  --survival-margin 0.02 \
+  --recovery-margin 0.03 \
+  --consistency-margin 0.02 \
+  --metacognitive-margin 0.01 \
+  --temporal-continuity-margin 0.01 \
+  --consciousness-margin 0.01 \
+  --output-dir outputs/persistent_agi_consciousness_ablation_on
+```
+
+Compare held-out metrics:
+
+```bash
+.venv/bin/python - <<'PY'
+import json
+from pathlib import Path
+
+off = json.loads(Path("outputs/persistent_agi_consciousness_ablation_off/summary.json").read_text())
+on = json.loads(Path("outputs/persistent_agi_consciousness_ablation_on/summary.json").read_text())
+
+keys = [
+    "survival_score",
+    "shock_recovery_score",
+    "consistency_score",
+    "metacognitive_score",
+    "temporal_self_continuity_score",
+    "introspective_coherence_score",
+    "consciousness_proxy_score",
+]
+
+print("metric,off_candidate,on_candidate,delta_on_minus_off")
+for key in keys:
+    off_v = float(off["evaluation"]["candidate"][key])
+    on_v = float(on["evaluation"]["candidate"][key])
+    print(f"{key},{off_v:.6f},{on_v:.6f},{(on_v-off_v):+.6f}")
+PY
+```
+
+### Multi-seed consciousness ablation automation
+
+Run paired OFF-vs-ON campaigns across many seeds and compute aggregate deltas with 95% confidence intervals:
+
+```bash
+.venv/bin/python scripts/run_consciousness_ablation.py \
+  --run-tag consciousness_multiseed_v3 \
+  --seeds 4242,4243,4244,4245,4246,4247,4248,4249 \
+  --train-episodes 16 \
+  --eval-episodes 8 \
+  --days-per-episode 240
+```
+
+Recommended tuned powerup configuration:
+
+```bash
+.venv/bin/python scripts/run_consciousness_ablation.py \
+  --run-tag consciousness_multiseed_v3 \
+  --seeds 4242,4243,4244,4245,4246,4247,4248,4249 \
+  --train-episodes 16 \
+  --eval-episodes 8 \
+  --days-per-episode 240 \
+  --consciousness-bias-scale 0.25 \
+  --consciousness-bias-clip 0.08 \
+  --consciousness-update-rate 0.22 \
+  --consciousness-contradiction-gain 0.4
+```
+
+Generated artifacts for each run tag:
+
+- `outputs/consciousness_ablation/<run_tag>/ablation_report.md`
+- `outputs/consciousness_ablation/<run_tag>/aggregate_summary.json`
+- `outputs/consciousness_ablation/<run_tag>/per_seed_metrics.csv`
+- `outputs/consciousness_ablation/<run_tag>/seed_<seed>/{off,on}/summary.json`
+- `outputs/consciousness_ablation/iteration_comparison_v1_v2_v3.md` (cross-version snapshot)
+
+Current multiseed snapshot (`consciousness_multiseed_v3`) after testing + fixing + powerups:
+
+- ON stack retained expected memory behavior (`on_memory_entries_mean=16.0`, OFF `0.0`)
+- ON promotion rate improved to `0.375` vs OFF `0.250` (from prior unstable v2 where ON was `0.000`)
+- ON temporal continuity moved slightly positive on mean delta
+- ON means are now near-parity vs OFF on most metrics, but still slightly negative on survival, recovery, consistency, metacognition, introspective coherence, and consciousness proxy
+- all confidence intervals for ON-OFF deltas still cross zero, so no robust promotion claim yet
+
+### Random-question reasoning benchmark
+
+Use this benchmark to test whether responses stay correct and stable under prompt rephrasing (a practical proxy for reasoning vs shallow patterning):
+
+```bash
+.venv/bin/python scripts/run_random_reasoning_benchmark.py \
+  --model qwen2.5:0.5b \
+  --max-questions 15 \
+  --run-tag random_reasoning_full
+```
+
+Benchmark configuration file:
+
+- `configs/random_reasoning_benchmark.json`
+
+Benchmark artifacts:
+
+- `outputs/random_reasoning_benchmark/<run_tag>/summary.json`
+- `outputs/random_reasoning_benchmark/<run_tag>/report.md`
+
+Apply strict promotion gate to benchmark output:
+
+```bash
+.venv/bin/python scripts/evaluate_random_reasoning_gate.py \
+  --candidate-summary outputs/random_reasoning_benchmark/random_reasoning_live_qwen05b_v3/summary.json \
+  --report-path outputs/random_reasoning_benchmark/random_reasoning_gate_report.md
+```
+
+Compare candidate vs baseline run under gate:
+
+```bash
+.venv/bin/python scripts/evaluate_random_reasoning_gate.py \
+  --candidate-summary outputs/random_reasoning_benchmark/random_reasoning_live_qwen05b_v3/summary.json \
+  --baseline-summary outputs/random_reasoning_benchmark/random_reasoning_live_qwen05b_v2/summary.json \
+  --report-path outputs/random_reasoning_benchmark/random_reasoning_gate_v3_vs_v2.md
+```
+
+Gate config file:
+
+- `configs/random_reasoning_gate.json`
+
+Current live smoke sample (`random_reasoning_live_qwen05b_v3`, 6 questions):
+
+- base accuracy: `0.333`
+- paraphrase accuracy: `0.333`
+- repair accuracy: `0.333`
+- repair gain vs best-of-two: `-0.167`
+- consistency rate: `0.333`
+- pattern risk index: `0.667` (higher means more fragile/template-like)
+- strict reasoning gate currently returns `FAIL` for this sample (`random_reasoning_gate_v3_vs_v2.md`)
+
+Notes:
+
+- runner now separates API availability failures from reasoning failures
+- runner supports Ollama endpoint fallback (`/api/chat` to `/api/generate`) for compatibility
+- runner now includes a reflection repair pass and repair-aware metrics (`repair_accuracy_scored`, `repair_gain_vs_best_of_two`)
 
 Generated artifacts:
 
@@ -246,6 +446,11 @@ Key metrics in `summary.json` evaluation block:
 - `shock_recovery_score`
 - `consistency_score`
 - `metacognitive_score` (computed from prediction Brier error)
+- `temporal_self_continuity_score`
+- `introspective_coherence_score`
+- `consciousness_proxy_score`
+- `action_policy_continuity_score`
+- `self_projection_continuity_score`
 
 ### Standard Stage 2 run
 
@@ -339,6 +544,7 @@ The report now includes auto hypothesis cards with confidence intervals and effe
 It also emits ranked executable campaign templates so top interventions are immediately runnable as seed-batched command blocks.
 Intervention families are now tracked over time with baseline-vs-post outcome deltas and fed back into recommendation scoring.
 Recent large-batch executions have now run end-to-end from those templates:
+
 - completed innovation stress sweep (18 runs across shock 0.020/0.030/0.040)
 - completed a second innovation stress sweep (18 more runs across shock 0.020/0.030/0.040)
 - completed a third innovation stress sweep (18 runs across shock 0.020/0.030/0.040 with fresh seed window)
@@ -443,6 +649,7 @@ The builder now uses incremental ingest caching for run pages by default.
 Unchanged runs are detected from source signatures and skipped instead of being fully regenerated.
 
 Default cache file:
+
 - `.agi_wiki_run_cache.json`
 
 Override cache path if needed:
@@ -472,6 +679,7 @@ Fail fast when any wiki issue is detected:
 ```
 
 The lint report now checks:
+
 - broken links
 - orphan run pages
 - concept claim pages that do not cite at least one `wiki/runs/*.md` page
@@ -812,4 +1020,3 @@ After training, the champion is tested across unseen seeds and aggregated:
 
 This project explores emergent behavior in simulation. It does not claim consciousness or sentience.
 Use responsibly and avoid anthropomorphic over-interpretation of raw policy outputs.
-

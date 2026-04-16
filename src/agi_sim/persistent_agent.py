@@ -54,6 +54,8 @@ class GateThresholds:
     recovery_margin: float = 0.03
     consistency_margin: float = 0.02
     metacognitive_margin: float = 0.01
+    temporal_continuity_margin: float = 0.01
+    consciousness_margin: float = 0.01
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,16 @@ class PersistentAgiConfig:
     output_dir: Path = Path("outputs/persistent_agi")
     outer_outputs_dir: Path = Path("outputs")
     recovery_window_days: int = 8
+    consciousness_stack_enabled: bool = True
+    consciousness_memory_size: int = 64
+    strategy_revision_rate: float = 0.65
+    strategy_delta_clip: float = 0.12
+    strategy_bias_decay: float = 0.012
+    exploration_delta_clip: float = 0.015
+    consciousness_bias_scale: float = 0.25
+    consciousness_bias_clip: float = 0.08
+    consciousness_update_rate: float = 0.22
+    consciousness_contradiction_gain: float = 0.4
 
 
 @dataclass
@@ -137,6 +149,8 @@ class SelfModelState:
     strategy_confidence: float
     episode_count: int = 0
     reflections: List[str] = field(default_factory=list)
+    contradiction_safe_but_died: int = 0
+    contradiction_risky_but_thrived: int = 0
 
     @staticmethod
     def neutral() -> "SelfModelState":
@@ -157,6 +171,8 @@ class SelfModelState:
             strategy_confidence=self.strategy_confidence,
             episode_count=self.episode_count,
             reflections=list(self.reflections),
+            contradiction_safe_but_died=self.contradiction_safe_but_died,
+            contradiction_risky_but_thrived=self.contradiction_risky_but_thrived,
         )
 
     def to_dict(self) -> Dict[str, object]:
@@ -168,6 +184,11 @@ class SelfModelState:
             "strategy_confidence": round(self.strategy_confidence, 6),
             "episode_count": int(self.episode_count),
             "reflections": list(self.reflections[-16:]),
+            "contradiction_safe_but_died": int(self.contradiction_safe_but_died),
+            "contradiction_risky_but_thrived": int(self.contradiction_risky_but_thrived),
+            "contradiction_total": int(
+                self.contradiction_safe_but_died + self.contradiction_risky_but_thrived
+            ),
         }
 
     def predict(
@@ -245,6 +266,7 @@ class SelfModelState:
         starvation = 1.0 if death_reason == "starvation" else 0.0
         recovery = _safe_float(episode.get("shock_recovery_ratio")) or 0.0
         days_ratio = _safe_float(episode.get("days_ratio")) or 0.0
+        predicted_extinction = _safe_float(episode.get("prediction_extinction_risk")) or 0.0
 
         smooth = _clamp(smoothing, 0.01, 0.9)
 
@@ -264,6 +286,18 @@ class SelfModelState:
             0.01,
             0.99,
         )
+
+        contradiction_safe_but_died = extinct >= 0.5 and predicted_extinction <= 0.35
+        contradiction_risky_but_thrived = extinct < 0.5 and days_ratio >= 0.98 and predicted_extinction >= 0.65
+
+        if contradiction_safe_but_died:
+            self.contradiction_safe_but_died += 1
+            self.strategy_confidence = _clamp(self.strategy_confidence - 0.04, 0.01, 0.99)
+
+        if contradiction_risky_but_thrived:
+            self.contradiction_risky_but_thrived += 1
+            self.strategy_confidence = _clamp(self.strategy_confidence + 0.015, 0.01, 0.99)
+
         self.episode_count += 1
 
     def record_reflection(self, reflection: str) -> None:
@@ -273,6 +307,135 @@ class SelfModelState:
         self.reflections.append(cleaned)
         if len(self.reflections) > 64:
             self.reflections = self.reflections[-64:]
+
+
+@dataclass
+class ConsciousnessMemoryState:
+    identity_name: str = "persistent_agi"
+    contradiction_salience: float = 0.2
+    coherence_drive: float = 0.6
+    survival_drive: float = 0.9
+    exploration_drive: float = 0.3
+    memory_size: int = 64
+    autobiographical_memory: List[str] = field(default_factory=list)
+
+    @staticmethod
+    def neutral(memory_size: int = 64) -> "ConsciousnessMemoryState":
+        return ConsciousnessMemoryState(memory_size=max(8, memory_size))
+
+    def clone(self) -> "ConsciousnessMemoryState":
+        return ConsciousnessMemoryState(
+            identity_name=self.identity_name,
+            contradiction_salience=self.contradiction_salience,
+            coherence_drive=self.coherence_drive,
+            survival_drive=self.survival_drive,
+            exploration_drive=self.exploration_drive,
+            memory_size=self.memory_size,
+            autobiographical_memory=list(self.autobiographical_memory),
+        )
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "identity_name": self.identity_name,
+            "contradiction_salience": round(self.contradiction_salience, 6),
+            "coherence_drive": round(self.coherence_drive, 6),
+            "survival_drive": round(self.survival_drive, 6),
+            "exploration_drive": round(self.exploration_drive, 6),
+            "memory_size": int(self.memory_size),
+            "autobiographical_memory": list(self.autobiographical_memory[-20:]),
+        }
+
+    def remember_episode(
+        self,
+        episode: Dict[str, object],
+        critique: Dict[str, object],
+        *,
+        update_rate: float = 0.35,
+        contradiction_gain: float = 1.0,
+    ) -> None:
+        issues = critique.get("issues")
+        if not isinstance(issues, list):
+            issues = []
+
+        rate = _clamp(update_rate, 0.05, 1.0)
+        gain = _clamp(contradiction_gain, 0.1, 2.0)
+
+        days_ratio = _safe_float(episode.get("days_ratio")) or 0.0
+        reward = _safe_float(episode.get("mean_reward")) or 0.0
+        contradiction_safe = bool(episode.get("contradiction_predicted_safe_but_died", False))
+        contradiction_risky = bool(episode.get("contradiction_predicted_risky_but_thrived", False))
+        contradiction_flag = contradiction_safe or contradiction_risky
+
+        note = (
+            f"ep={episode.get('episode_index')}"
+            f" days={days_ratio:.3f}"
+            f" reward={reward:.3f}"
+            f" issues={','.join(str(item) for item in issues) if issues else 'none'}"
+            f" contradiction={int(contradiction_flag)}"
+        )
+        self.autobiographical_memory.append(note)
+
+        if len(self.autobiographical_memory) > self.memory_size:
+            self.autobiographical_memory = self.autobiographical_memory[-self.memory_size :]
+
+        contradiction_target = self.contradiction_salience
+        coherence_target = self.coherence_drive
+        exploration_target = self.exploration_drive
+
+        if contradiction_flag:
+            contradiction_target = _clamp(self.contradiction_salience + (0.08 * gain), 0.0, 1.0)
+            coherence_target = _clamp(self.coherence_drive + (0.04 * gain), 0.0, 1.0)
+            exploration_target = _clamp(self.exploration_drive - (0.03 * gain), 0.0, 1.0)
+        else:
+            contradiction_target = _clamp(self.contradiction_salience - 0.015, 0.0, 1.0)
+            coherence_target = _clamp(self.coherence_drive + 0.005, 0.0, 1.0)
+            if days_ratio > 0.98 and reward > 0.2:
+                exploration_target = _clamp(self.exploration_drive + 0.01, 0.0, 1.0)
+
+        survival_target = self.survival_drive
+        if days_ratio < 0.7:
+            survival_target = _clamp(self.survival_drive + (0.03 * gain), 0.0, 1.0)
+        elif days_ratio > 0.98:
+            survival_target = _clamp(self.survival_drive - 0.005, 0.0, 1.0)
+
+        self.contradiction_salience = _clamp(
+            ((1.0 - rate) * self.contradiction_salience) + (rate * contradiction_target),
+            0.0,
+            1.0,
+        )
+        self.coherence_drive = _clamp(
+            ((1.0 - rate) * self.coherence_drive) + (rate * coherence_target),
+            0.0,
+            1.0,
+        )
+        self.exploration_drive = _clamp(
+            ((1.0 - rate) * self.exploration_drive) + (rate * exploration_target),
+            0.0,
+            1.0,
+        )
+        self.survival_drive = _clamp(
+            ((1.0 - rate) * self.survival_drive) + (rate * survival_target),
+            0.0,
+            1.0,
+        )
+
+    def retrieval_bias(self, *, scale: float = 1.0) -> Dict[str, float]:
+        factor = _clamp(scale, 0.0, 2.0)
+        survival_push = (self.survival_drive * 0.22) + (self.contradiction_salience * 0.16)
+        coherence_push = self.coherence_drive * 0.14
+        exploration_push = self.exploration_drive * 0.12
+
+        return {
+            "search_water": factor * survival_push,
+            "search_food": factor * survival_push,
+            "drink_reserve": factor * (survival_push * 0.65),
+            "eat_reserve": factor * (survival_push * 0.6),
+            "rest": factor * coherence_push,
+            "build_shelter": factor * coherence_push,
+            "cooperate": factor * (coherence_push * 0.5),
+            "experiment": factor * (exploration_push - (self.contradiction_salience * 0.07)),
+            "mate": factor * (-survival_push * 0.35),
+        }
 
 
 class PersistentAgiLab:
@@ -295,10 +458,15 @@ class PersistentAgiLab:
 
         initial_mind = self._build_initial_mind()
         initial_self_model = SelfModelState.neutral()
+        initial_consciousness = ConsciousnessMemoryState.neutral(
+            memory_size=self.config.consciousness_memory_size,
+        )
         baseline_mind = initial_mind.clone()
         candidate_mind = initial_mind.clone()
         baseline_self_model = initial_self_model.clone()
         candidate_self_model = initial_self_model.clone()
+        baseline_consciousness = initial_consciousness.clone()
+        candidate_consciousness = initial_consciousness.clone()
 
         baseline_strategy = self._build_strategy_from_outer_prior().clone()
         candidate_strategy = baseline_strategy.clone()
@@ -316,15 +484,24 @@ class PersistentAgiLab:
                 strategy=candidate_strategy,
                 mind=candidate_mind,
                 self_model=candidate_self_model,
+                consciousness_state=candidate_consciousness,
                 allow_learning=True,
                 update_mind=True,
                 update_self_model=True,
+                update_consciousness=True,
             )
             train_records.append(result)
 
             critique = self._self_critique(result)
             self._revise_strategy(candidate_strategy, critique)
             candidate_self_model.record_reflection(str(critique.get("reflection_note", "")))
+            if self.config.consciousness_stack_enabled:
+                candidate_consciousness.remember_episode(
+                    result,
+                    critique,
+                    update_rate=self.config.consciousness_update_rate,
+                    contradiction_gain=self.config.consciousness_contradiction_gain,
+                )
             critique_records.append(
                 {
                     "episode_index": episode_index,
@@ -332,6 +509,7 @@ class PersistentAgiLab:
                     "critique": critique,
                     "strategy_after": candidate_strategy.to_dict(),
                     "self_model_after": candidate_self_model.to_dict(),
+                    "consciousness_after": candidate_consciousness.to_dict(),
                 }
             )
 
@@ -349,9 +527,11 @@ class PersistentAgiLab:
                     strategy=baseline_strategy,
                     mind=baseline_mind,
                     self_model=baseline_self_model,
+                    consciousness_state=baseline_consciousness,
                     allow_learning=False,
                     update_mind=False,
                     update_self_model=False,
+                    update_consciousness=False,
                 )
             )
             candidate_eval_records.append(
@@ -363,9 +543,11 @@ class PersistentAgiLab:
                     strategy=candidate_strategy,
                     mind=candidate_mind,
                     self_model=candidate_self_model,
+                    consciousness_state=candidate_consciousness,
                     allow_learning=False,
                     update_mind=False,
                     update_self_model=False,
+                    update_consciousness=False,
                 )
             )
 
@@ -376,6 +558,9 @@ class PersistentAgiLab:
         selected_strategy = candidate_strategy if gate_report["promoted"] else baseline_strategy
         selected_mind = candidate_mind if gate_report["promoted"] else baseline_mind
         selected_self_model = candidate_self_model if gate_report["promoted"] else baseline_self_model
+        selected_consciousness = (
+            candidate_consciousness if gate_report["promoted"] else baseline_consciousness
+        )
 
         selected_strategy_path = output_dir / "selected_strategy.json"
         selected_strategy_path.write_text(
@@ -386,6 +571,7 @@ class PersistentAgiLab:
                     "strategy": selected_strategy.to_dict(),
                     "mind": selected_mind.to_dict(),
                     "self_model": selected_self_model.to_dict(),
+                    "consciousness": selected_consciousness.to_dict(),
                 },
                 indent=2,
                 ensure_ascii=True,
@@ -408,6 +594,8 @@ class PersistentAgiLab:
         with heldout_log_path.open("w", encoding="utf-8") as fp:
             for row in baseline_eval_records + candidate_eval_records:
                 fp.write(json.dumps(row, ensure_ascii=True) + "\n")
+
+        train_temporal = self._compute_temporal_continuity(train_records)
 
         summary = {
             "generated_at_utc": _utc_now(),
@@ -432,7 +620,19 @@ class PersistentAgiLab:
                     "recovery_margin": self.config.gate.recovery_margin,
                     "consistency_margin": self.config.gate.consistency_margin,
                     "metacognitive_margin": self.config.gate.metacognitive_margin,
+                    "temporal_continuity_margin": self.config.gate.temporal_continuity_margin,
+                    "consciousness_margin": self.config.gate.consciousness_margin,
                 },
+                "consciousness_stack_enabled": self.config.consciousness_stack_enabled,
+                "consciousness_memory_size": self.config.consciousness_memory_size,
+                "strategy_revision_rate": self.config.strategy_revision_rate,
+                "strategy_delta_clip": self.config.strategy_delta_clip,
+                "strategy_bias_decay": self.config.strategy_bias_decay,
+                "exploration_delta_clip": self.config.exploration_delta_clip,
+                "consciousness_bias_scale": self.config.consciousness_bias_scale,
+                "consciousness_bias_clip": self.config.consciousness_bias_clip,
+                "consciousness_update_rate": self.config.consciousness_update_rate,
+                "consciousness_contradiction_gain": self.config.consciousness_contradiction_gain,
             },
             "train_summary": {
                 "episodes": len(train_records),
@@ -447,6 +647,23 @@ class PersistentAgiLab:
                     _clamp(1.0 - self._mean_from_records(train_records, "prediction_brier"), 0.0, 1.0),
                     6,
                 ),
+                "mean_introspective_coherence_score": round(
+                    self._mean_from_records(train_records, "introspective_coherence_score"),
+                    6,
+                ),
+                "temporal_self_continuity_score": round(train_temporal["temporal_self_continuity_score"], 6),
+                "action_policy_continuity_score": round(train_temporal["action_policy_continuity_score"], 6),
+                "self_projection_continuity_score": round(train_temporal["self_projection_continuity_score"], 6),
+                "mean_consciousness_proxy_score": round(
+                    self._mean_from_records(train_records, "consciousness_proxy_score"),
+                    6,
+                ),
+                "contradiction_safe_but_died_count": int(
+                    candidate_self_model.contradiction_safe_but_died
+                ),
+                "contradiction_risky_but_thrived_count": int(
+                    candidate_self_model.contradiction_risky_but_thrived
+                ),
             },
             "evaluation": {
                 "baseline": baseline_eval,
@@ -457,6 +674,11 @@ class PersistentAgiLab:
                 "baseline": baseline_self_model.to_dict(),
                 "candidate": candidate_self_model.to_dict(),
                 "selected": selected_self_model.to_dict(),
+            },
+            "consciousness_states": {
+                "baseline": baseline_consciousness.to_dict(),
+                "candidate": candidate_consciousness.to_dict(),
+                "selected": selected_consciousness.to_dict(),
             },
             "artifacts": {
                 "train_log_path": str(train_log_path),
@@ -572,9 +794,11 @@ class PersistentAgiLab:
         strategy: StrategyState,
         mind: MindState,
         self_model: SelfModelState,
+        consciousness_state: ConsciousnessMemoryState,
         allow_learning: bool,
         update_mind: bool,
         update_self_model: bool,
+        update_consciousness: bool,
     ) -> Dict[str, object]:
         rng = random.Random(seed)
         world = WorldState()
@@ -615,7 +839,13 @@ class PersistentAgiLab:
                 survived_days = day
                 break
 
-            action = self._choose_action(agent=agent, world=world, strategy=strategy, rng=rng)
+            action = self._choose_action(
+                agent=agent,
+                world=world,
+                strategy=strategy,
+                consciousness_state=consciousness_state,
+                rng=rng,
+            )
             action_counts[action] += 1
 
             outcome = apply_action(
@@ -667,6 +897,33 @@ class PersistentAgiLab:
             ]
         )
 
+        contradiction_safe_but_died = bool(actual_extinction >= 0.5 and prediction["extinction_risk"] <= 0.35)
+        contradiction_risky_but_thrived = bool(
+            actual_extinction < 0.5 and days_ratio >= 0.98 and prediction["extinction_risk"] >= 0.65
+        )
+        contradiction_flag = contradiction_safe_but_died or contradiction_risky_but_thrived
+
+        introspective_coherence = _clamp(
+            1.0 - ((0.62 * (1.0 if contradiction_flag else 0.0)) + (0.38 * prediction_brier)),
+            0.0,
+            1.0,
+        )
+
+        temporal_proxy = _clamp(
+            1.0
+            - abs((prediction["extinction_risk"] + prediction["dehydration_risk"]) - (actual_extinction + actual_dehydration)),
+            0.0,
+            1.0,
+        )
+
+        consciousness_proxy_score = _clamp(
+            (0.38 * introspective_coherence)
+            + (0.32 * _clamp(1.0 - prediction_brier, 0.0, 1.0))
+            + (0.30 * temporal_proxy),
+            0.0,
+            1.0,
+        )
+
         episode_payload = {
             "episode_index": episode_index,
             "split": split,
@@ -694,6 +951,10 @@ class PersistentAgiLab:
             "prediction_starvation_risk": round(prediction["starvation_risk"], 6),
             "prediction_recovery_confidence": round(prediction["recovery_confidence"], 6),
             "prediction_brier": round(prediction_brier, 6),
+            "contradiction_predicted_safe_but_died": contradiction_safe_but_died,
+            "contradiction_predicted_risky_but_thrived": contradiction_risky_but_thrived,
+            "introspective_coherence_score": round(introspective_coherence, 6),
+            "consciousness_proxy_score": round(consciousness_proxy_score, 6),
         }
 
         if update_self_model:
@@ -702,6 +963,11 @@ class PersistentAgiLab:
 
         else:
             episode_payload["self_model_snapshot"] = self_model.to_dict()
+
+        if update_consciousness:
+            episode_payload["consciousness_state_snapshot"] = consciousness_state.to_dict()
+        else:
+            episode_payload["consciousness_state_snapshot"] = consciousness_state.to_dict()
 
         return episode_payload
 
@@ -760,6 +1026,7 @@ class PersistentAgiLab:
         agent: Agent,
         world: WorldState,
         strategy: StrategyState,
+        consciousness_state: ConsciousnessMemoryState,
         rng: random.Random,
     ) -> str:
         if agent.days_without_water >= 2:
@@ -771,8 +1038,21 @@ class PersistentAgiLab:
             return rng.choice(ALLOWED_ACTIONS)
 
         scores: Dict[str, float] = {}
+        if self.config.consciousness_stack_enabled:
+            raw_bias = consciousness_state.retrieval_bias(scale=self.config.consciousness_bias_scale)
+            consciousness_bias = {
+                action: _clamp(
+                    float(raw_bias.get(action, 0.0)),
+                    -self.config.consciousness_bias_clip,
+                    self.config.consciousness_bias_clip,
+                )
+                for action in ALLOWED_ACTIONS
+            }
+        else:
+            consciousness_bias = {action: 0.0 for action in ALLOWED_ACTIONS}
         for action in ALLOWED_ACTIONS:
             base = float(agent.action_values.get(action, 0.0)) + float(strategy.action_bias.get(action, 0.0))
+            base += float(consciousness_bias.get(action, 0.0))
             survival_push = 0.0
 
             if action == "search_water":
@@ -875,11 +1155,13 @@ class PersistentAgiLab:
 
         if extinct and predicted_extinction < 0.3:
             issues.append("overconfidence")
+            issues.append("contradiction_predicted_safe_but_died")
             adjustments["search_water"] += 0.1
             adjustments["search_food"] += 0.1
 
         if (not extinct) and predicted_extinction > 0.75:
             issues.append("underconfidence")
+            issues.append("contradiction_predicted_risky_but_thrived")
             adjustments["experiment"] += 0.05
 
         if not extinct and shock_recovery >= 0.75 and mean_reward > 0.5:
@@ -912,19 +1194,35 @@ class PersistentAgiLab:
         }
 
     def _revise_strategy(self, strategy: StrategyState, critique: Dict[str, object]) -> None:
+        revision_rate = _clamp(self.config.strategy_revision_rate, 0.05, 1.0)
+        delta_clip = _clamp(self.config.strategy_delta_clip, 0.01, 1.0)
+        bias_decay = _clamp(self.config.strategy_bias_decay, 0.0, 0.2)
+
         adjustments = critique.get("adjustments")
         if isinstance(adjustments, dict):
             for action in ALLOWED_ACTIONS:
                 delta = _safe_float(adjustments.get(action)) or 0.0
-                strategy.action_bias[action] = _clamp(strategy.action_bias[action] + delta, -3.0, 3.0)
+                bounded_delta = _clamp(delta, -delta_clip, delta_clip)
+                revised = strategy.action_bias[action] + (revision_rate * bounded_delta)
+                revised *= (1.0 - bias_decay)
+                strategy.action_bias[action] = _clamp(revised, -3.0, 3.0)
 
         exploration_delta = _safe_float(critique.get("exploration_delta")) or 0.0
-        strategy.exploration_rate = _clamp(strategy.exploration_rate + exploration_delta, 0.02, 0.35)
+        exploration_clip = _clamp(self.config.exploration_delta_clip, 0.001, 0.08)
+        bounded_exploration_delta = _clamp(exploration_delta, -exploration_clip, exploration_clip)
+        strategy.exploration_rate = _clamp(
+            strategy.exploration_rate + (revision_rate * bounded_exploration_delta),
+            0.02,
+            0.35,
+        )
 
     def _aggregate_eval_metrics(self, records: List[Dict[str, object]]) -> Dict[str, object]:
         survival_values: List[float] = []
         recovery_values: List[float] = []
         prediction_brier_values: List[float] = []
+        introspective_values: List[float] = []
+        consciousness_proxy_values: List[float] = []
+        temporal_continuity = self._compute_temporal_continuity(records)
 
         for row in records:
             days_ratio = _safe_float(row.get("days_ratio")) or 0.0
@@ -933,6 +1231,8 @@ class PersistentAgiLab:
             survival_values.append((0.75 * days_ratio) + (0.25 * health_norm))
             recovery_values.append(_safe_float(row.get("shock_recovery_ratio")) or 0.0)
             prediction_brier_values.append(_safe_float(row.get("prediction_brier")) or 0.0)
+            introspective_values.append(_safe_float(row.get("introspective_coherence_score")) or 0.0)
+            consciousness_proxy_values.append(_safe_float(row.get("consciousness_proxy_score")) or 0.0)
 
         survival_score = statistics.mean(survival_values) if survival_values else 0.0
         recovery_score = statistics.mean(recovery_values) if recovery_values else 0.0
@@ -946,6 +1246,18 @@ class PersistentAgiLab:
         extinction_rate = self._mean_from_records(records, "extinct", bool_to_float=True)
         mean_prediction_brier = statistics.mean(prediction_brier_values) if prediction_brier_values else 1.0
         metacognitive_score = _clamp(1.0 - mean_prediction_brier, 0.0, 1.0)
+        introspective_coherence = statistics.mean(introspective_values) if introspective_values else 0.0
+        consciousness_proxy = (
+            statistics.mean(consciousness_proxy_values)
+            if consciousness_proxy_values
+            else _clamp(
+                (0.35 * metacognitive_score)
+                + (0.35 * temporal_continuity["temporal_self_continuity_score"])
+                + (0.30 * introspective_coherence),
+                0.0,
+                1.0,
+            )
+        )
 
         return {
             "episodes": len(records),
@@ -953,7 +1265,21 @@ class PersistentAgiLab:
             "shock_recovery_score": round(recovery_score, 6),
             "consistency_score": round(consistency, 6),
             "metacognitive_score": round(metacognitive_score, 6),
+            "introspective_coherence_score": round(introspective_coherence, 6),
+            "consciousness_proxy_score": round(consciousness_proxy, 6),
             "mean_prediction_brier": round(mean_prediction_brier, 6),
+            "temporal_self_continuity_score": round(
+                temporal_continuity["temporal_self_continuity_score"],
+                6,
+            ),
+            "action_policy_continuity_score": round(
+                temporal_continuity["action_policy_continuity_score"],
+                6,
+            ),
+            "self_projection_continuity_score": round(
+                temporal_continuity["self_projection_continuity_score"],
+                6,
+            ),
             "extinction_rate": round(extinction_rate, 6),
             "mean_days_ratio": round(self._mean_from_records(records, "days_ratio"), 6),
             "mean_final_health": round(self._mean_from_records(records, "final_health"), 6),
@@ -976,34 +1302,73 @@ class PersistentAgiLab:
         baseline_metacognitive = _safe_float(baseline_eval.get("metacognitive_score")) or 0.0
         candidate_metacognitive = _safe_float(candidate_eval.get("metacognitive_score")) or 0.0
 
+        baseline_temporal = _safe_float(baseline_eval.get("temporal_self_continuity_score")) or 0.0
+        candidate_temporal = _safe_float(candidate_eval.get("temporal_self_continuity_score")) or 0.0
+
+        baseline_consciousness = _safe_float(baseline_eval.get("consciousness_proxy_score")) or 0.0
+        candidate_consciousness = _safe_float(candidate_eval.get("consciousness_proxy_score")) or 0.0
+
+        survival_required = _clamp(baseline_survival + self.config.gate.survival_margin, 0.0, 1.0)
+        recovery_required = _clamp(baseline_recovery + self.config.gate.recovery_margin, 0.0, 1.0)
+        consistency_required = _clamp(baseline_consistency + self.config.gate.consistency_margin, 0.0, 1.0)
+        metacognitive_required = _clamp(
+            baseline_metacognitive + self.config.gate.metacognitive_margin,
+            0.0,
+            1.0,
+        )
+        temporal_required = _clamp(
+            baseline_temporal + self.config.gate.temporal_continuity_margin,
+            0.0,
+            1.0,
+        )
+        consciousness_required = _clamp(
+            baseline_consciousness + self.config.gate.consciousness_margin,
+            0.0,
+            1.0,
+        )
+
         checks = [
             {
                 "name": "survival",
                 "baseline": round(baseline_survival, 6),
                 "candidate": round(candidate_survival, 6),
-                "required_min": round(baseline_survival + self.config.gate.survival_margin, 6),
-                "passed": candidate_survival >= baseline_survival + self.config.gate.survival_margin,
+                "required_min": round(survival_required, 6),
+                "passed": candidate_survival >= survival_required,
             },
             {
                 "name": "shock_recovery",
                 "baseline": round(baseline_recovery, 6),
                 "candidate": round(candidate_recovery, 6),
-                "required_min": round(baseline_recovery + self.config.gate.recovery_margin, 6),
-                "passed": candidate_recovery >= baseline_recovery + self.config.gate.recovery_margin,
+                "required_min": round(recovery_required, 6),
+                "passed": candidate_recovery >= recovery_required,
             },
             {
                 "name": "consistency",
                 "baseline": round(baseline_consistency, 6),
                 "candidate": round(candidate_consistency, 6),
-                "required_min": round(baseline_consistency + self.config.gate.consistency_margin, 6),
-                "passed": candidate_consistency >= baseline_consistency + self.config.gate.consistency_margin,
+                "required_min": round(consistency_required, 6),
+                "passed": candidate_consistency >= consistency_required,
             },
             {
                 "name": "metacognition",
                 "baseline": round(baseline_metacognitive, 6),
                 "candidate": round(candidate_metacognitive, 6),
-                "required_min": round(baseline_metacognitive + self.config.gate.metacognitive_margin, 6),
-                "passed": candidate_metacognitive >= baseline_metacognitive + self.config.gate.metacognitive_margin,
+                "required_min": round(metacognitive_required, 6),
+                "passed": candidate_metacognitive >= metacognitive_required,
+            },
+            {
+                "name": "temporal_self_continuity",
+                "baseline": round(baseline_temporal, 6),
+                "candidate": round(candidate_temporal, 6),
+                "required_min": round(temporal_required, 6),
+                "passed": candidate_temporal >= temporal_required,
+            },
+            {
+                "name": "consciousness_proxy",
+                "baseline": round(baseline_consciousness, 6),
+                "candidate": round(candidate_consciousness, 6),
+                "required_min": round(consciousness_required, 6),
+                "passed": candidate_consciousness >= consciousness_required,
             },
         ]
 
@@ -1012,6 +1377,89 @@ class PersistentAgiLab:
             "promoted": promoted,
             "checks": checks,
         }
+
+    def _compute_temporal_continuity(self, records: List[Dict[str, object]]) -> Dict[str, float]:
+        policy_vectors: List[Dict[str, float]] = []
+        projection_vectors: List[Dict[str, float]] = []
+
+        for row in records:
+            action_counts = row.get("action_counts")
+            if isinstance(action_counts, dict):
+                policy_vectors.append(self._action_distribution(action_counts))
+
+            projection_vectors.append(
+                {
+                    "extinction_risk": _safe_float(row.get("prediction_extinction_risk")) or 0.0,
+                    "dehydration_risk": _safe_float(row.get("prediction_dehydration_risk")) or 0.0,
+                    "starvation_risk": _safe_float(row.get("prediction_starvation_risk")) or 0.0,
+                    "recovery_confidence": _safe_float(row.get("prediction_recovery_confidence")) or 0.0,
+                }
+            )
+
+        action_policy_continuity = self._continuity_from_vectors(
+            vectors=policy_vectors,
+            distance_fn=self._distribution_distance,
+        )
+        self_projection_continuity = self._continuity_from_vectors(
+            vectors=projection_vectors,
+            distance_fn=self._projection_distance,
+        )
+
+        temporal_self_continuity = _clamp(
+            (0.55 * action_policy_continuity) + (0.45 * self_projection_continuity),
+            0.0,
+            1.0,
+        )
+
+        return {
+            "temporal_self_continuity_score": temporal_self_continuity,
+            "action_policy_continuity_score": action_policy_continuity,
+            "self_projection_continuity_score": self_projection_continuity,
+        }
+
+    def _action_distribution(self, action_counts: Dict[str, object]) -> Dict[str, float]:
+        normalized: Dict[str, float] = {action: 0.0 for action in ALLOWED_ACTIONS}
+        total = 0.0
+
+        for action in ALLOWED_ACTIONS:
+            raw = action_counts.get(action)
+            amount = _safe_float(raw) or 0.0
+            amount = max(0.0, amount)
+            normalized[action] = amount
+            total += amount
+
+        if total <= 1e-9:
+            return normalized
+
+        for action in ALLOWED_ACTIONS:
+            normalized[action] = normalized[action] / total
+        return normalized
+
+    def _distribution_distance(self, left: Dict[str, float], right: Dict[str, float]) -> float:
+        total = 0.0
+        for action in ALLOWED_ACTIONS:
+            total += abs(float(left.get(action, 0.0)) - float(right.get(action, 0.0)))
+        return _clamp(total / 2.0, 0.0, 1.0)
+
+    def _projection_distance(self, left: Dict[str, float], right: Dict[str, float]) -> float:
+        keys = ["extinction_risk", "dehydration_risk", "starvation_risk", "recovery_confidence"]
+        distances = [abs(float(left.get(key, 0.0)) - float(right.get(key, 0.0))) for key in keys]
+        return _clamp(statistics.mean(distances) if distances else 0.0, 0.0, 1.0)
+
+    def _continuity_from_vectors(self, vectors: List[Dict[str, float]], distance_fn) -> float:
+        if len(vectors) < 2:
+            return 1.0
+
+        distances: List[float] = []
+        previous = vectors[0]
+        for current in vectors[1:]:
+            distances.append(_clamp(float(distance_fn(previous, current)), 0.0, 1.0))
+            previous = current
+
+        if not distances:
+            return 1.0
+
+        return _clamp(1.0 - statistics.mean(distances), 0.0, 1.0)
 
     def _mean_from_records(
         self,

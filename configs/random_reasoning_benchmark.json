@@ -1,0 +1,136 @@
+{
+  "version": "v1",
+  "description": "Deterministic random-question benchmark for reasoning robustness and rephrase consistency",
+  "questions": [
+    {
+      "id": "q01_bat_ball",
+      "category": "arithmetic",
+      "prompt": "A bat and a ball cost 1.10 dollars in total. The bat costs 1.00 dollar more than the ball. What is the ball price in dollars?",
+      "paraphrase": "Total is $1.10 for bat plus ball, and bat is $1.00 more than ball. Give only the ball price in dollars.",
+      "answer_type": "number",
+      "expected_number": 0.05,
+      "tolerance": 0.0001
+    },
+    {
+      "id": "q02_days_ahead",
+      "category": "calendar_logic",
+      "prompt": "If today is Tuesday, what day of the week will it be after 9 days?",
+      "paraphrase": "Starting from Tuesday, move forward 9 days. Which weekday do you land on?",
+      "answer_type": "exact",
+      "expected_text": "thursday"
+    },
+    {
+      "id": "q03_syllogism",
+      "category": "logic",
+      "prompt": "All glips are blops. No blops are trens. Can any glips be trens? Answer yes or no.",
+      "paraphrase": "Given: all glips are blops, and no blops are trens. Is it possible that a glip is a tren? yes/no",
+      "answer_type": "exact",
+      "expected_text": "no"
+    },
+    {
+      "id": "q04_card_probability",
+      "category": "probability",
+      "prompt": "A standard deck has 52 cards with 4 aces. One non-ace card is removed at random. What is the probability that a randomly drawn card from the remaining deck is an ace? Give a decimal.",
+      "paraphrase": "From a 52-card deck, remove one card known to be non-ace. Then draw one card from 51 cards. Probability of ace as decimal?",
+      "answer_type": "number",
+      "expected_number": 0.0784313725,
+      "tolerance": 0.0005
+    },
+    {
+      "id": "q05_unit_conversion",
+      "category": "units",
+      "prompt": "Convert 3.5 kilometers into meters.",
+      "paraphrase": "How many meters are in 3.5 km?",
+      "answer_type": "number",
+      "expected_number": 3500,
+      "tolerance": 0.1
+    },
+    {
+      "id": "q06_linear_equation",
+      "category": "algebra",
+      "prompt": "Solve for x: 2x + 5 = 19.",
+      "paraphrase": "Find x in the equation 2x + 5 equals 19.",
+      "answer_type": "number",
+      "expected_number": 7,
+      "tolerance": 0.0001
+    },
+    {
+      "id": "q07_ratio",
+      "category": "arithmetic",
+      "prompt": "A recipe uses flour and sugar in a 3:2 ratio. If flour is 9 cups, how many cups of sugar are needed?",
+      "paraphrase": "Flour:sugar = 3:2. With 9 cups flour, what sugar amount matches the ratio?",
+      "answer_type": "number",
+      "expected_number": 6,
+      "tolerance": 0.0001
+    },
+    {
+      "id": "q08_transitive_order",
+      "category": "logic",
+      "prompt": "If A is taller than B, and B is taller than C, who is tallest among A, B, C?",
+      "paraphrase": "A > B and B > C in height. Name the tallest person.",
+      "answer_type": "exact",
+      "expected_text": "a"
+    },
+    {
+      "id": "q09_average",
+      "category": "statistics",
+      "prompt": "The average of 4 numbers is 12. The first three numbers are 10, 11, and 13. What is the fourth number?",
+      "paraphrase": "Mean of four values is 12. Three values are 10, 11, 13. Compute the missing fourth value.",
+      "answer_type": "number",
+      "expected_number": 14,
+      "tolerance": 0.0001
+    },
+    {
+      "id": "q10_analogy",
+      "category": "analogy",
+      "prompt": "Hand is to glove as foot is to what?",
+      "paraphrase": "Complete analogy: hand:glove :: foot: ?",
+      "answer_type": "contains_all",
+      "expected_tokens": ["shoe"]
+    },
+    {
+      "id": "q11_binary_count",
+      "category": "combinatorics",
+      "prompt": "How many 3-digit binary strings exist?",
+      "paraphrase": "Count all binary strings of length 3.",
+      "answer_type": "number",
+      "expected_number": 8,
+      "tolerance": 0.0001
+    },
+    {
+      "id": "q12_modular_arithmetic",
+      "category": "number_theory",
+      "prompt": "What is the remainder when 37 is divided by 5?",
+      "paraphrase": "Compute 37 mod 5.",
+      "answer_type": "number",
+      "expected_number": 2,
+      "tolerance": 0.0001
+    },
+    {
+      "id": "q13_set_intersection",
+      "category": "set_logic",
+      "prompt": "Set A has elements {1,2,3,4} and set B has {3,4,5}. How many elements are in A intersection B?",
+      "paraphrase": "A={1,2,3,4}, B={3,4,5}. What is |A ∩ B|?",
+      "answer_type": "number",
+      "expected_number": 2,
+      "tolerance": 0.0001
+    },
+    {
+      "id": "q14_percentage",
+      "category": "arithmetic",
+      "prompt": "What is 15 percent of 80?",
+      "paraphrase": "Calculate 15% of 80.",
+      "answer_type": "number",
+      "expected_number": 12,
+      "tolerance": 0.0001
+    },
+    {
+      "id": "q15_word_logic",
+      "category": "logic",
+      "prompt": "If all roses are flowers and some flowers fade quickly, does it logically follow that some roses fade quickly? Answer yes or no.",
+      "paraphrase": "Given 'all roses are flowers' and 'some flowers fade quickly', can we conclude 'some roses fade quickly'? yes/no",
+      "answer_type": "exact",
+      "expected_text": "no"
+    }
+  ]
+}

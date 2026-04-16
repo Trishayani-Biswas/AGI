@@ -260,22 +260,67 @@ class DualLLMBrain:
                 "top_p": 0.9,
             },
         }
-        body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
-        req = request.Request(
-            url=f"{self.config.ollama_url.rstrip('/')}/api/chat",
-            data=body,
-            method="POST",
-            headers={"Content-Type": "application/json"},
-        )
-        try:
+
+        def _post_json(url: str, body_payload: Dict[str, Any]) -> Dict[str, Any]:
+            body = json.dumps(body_payload, ensure_ascii=True).encode("utf-8")
+            req = request.Request(
+                url=url,
+                data=body,
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
             with request.urlopen(req, timeout=self.config.llm_timeout_s) as resp:
                 raw = resp.read().decode("utf-8")
-                parsed = json.loads(raw)
-                text = parsed.get("message", {}).get("content", "")
-                extracted = self._extract_json(text)
-                if extracted is not None:
-                    self._llm_failures = 0
-                return extracted
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else {}
+
+        chat_url = f"{self.config.ollama_url.rstrip('/')}/api/chat"
+        generate_url = f"{self.config.ollama_url.rstrip('/')}/api/generate"
+
+        try:
+            parsed = _post_json(chat_url, payload)
+            text = str(parsed.get("message", {}).get("content", ""))
+        except error.HTTPError as exc:
+            if exc.code != 404:
+                self._llm_failures += 1
+                if self._llm_failures >= 4:
+                    self._runtime_llm_disabled = True
+                return None
+
+            generate_prompt = "\n".join(
+                [
+                    system_prompt,
+                    "",
+                    "USER_PAYLOAD_JSON:",
+                    json.dumps(user_payload, ensure_ascii=True),
+                    "",
+                    "Return strict JSON only.",
+                ]
+            )
+            generate_payload: Dict[str, Any] = {
+                "model": model,
+                "prompt": generate_prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.6,
+                    "top_p": 0.9,
+                },
+            }
+
+            try:
+                parsed = _post_json(generate_url, generate_payload)
+                text = str(parsed.get("response", ""))
+            except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
+                self._llm_failures += 1
+                if self._llm_failures >= 4:
+                    self._runtime_llm_disabled = True
+                return None
+
+        try:
+            extracted = self._extract_json(text)
+            if extracted is not None:
+                self._llm_failures = 0
+            return extracted
         except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
             self._llm_failures += 1
             if self._llm_failures >= 4:
