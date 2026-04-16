@@ -167,6 +167,115 @@ ollama pull llama3.2:3b
 ollama pull qwen2.5:3b
 ```
 
+### 3. Live chat harness (for iterative consciousness probes)
+
+Use this when you want direct turn-by-turn conversations with a local model and clean transcripts to review.
+
+```bash
+./scripts/start_chat_env.sh --model deepseek-r1:1.5b --session-name consciousness_probe_01
+```
+
+What it saves per session:
+
+- `outputs/live_chat_sessions/<session_name>/transcript.jsonl`
+- `outputs/live_chat_sessions/<session_name>/transcript.md`
+- `outputs/live_chat_sessions/<session_name>/session_meta.json`
+
+Useful flags:
+
+- `--temperature 0.0`
+- `--top-p 0.3`
+- `--max-tokens 256`
+- `--profile consciousness-probe` (default)
+- `--profile neutral`
+- `--history-turns 8`
+- `--enable-think` (off by default)
+
+Built-in chat commands:
+
+- `/help`
+- `/reset` (clear conversation memory)
+- `/show-system` (print active system prompt)
+- `/quit`
+
+If you see `model>` with no final answer while `--enable-think` is on, increase `--max-tokens` (for example `--max-tokens 1024`) or run without `--enable-think`.
+
+If one model gives repetitive refusal-style answers for harmless prompts, try another local model, for example:
+
+```bash
+bash ./scripts/start_chat_env.sh --model qwen2.5:3b --session-name consciousness_probe_alt
+```
+
+If you see a terminal exit code error, run the launcher with an absolute path:
+
+```bash
+/home/Jit-Paul-2008/Desktop/AGI/scripts/start_chat_env.sh --model deepseek-r1:1.5b --session-name test1
+```
+
+For the most reliable behavior, run the script directly (or with `bash`), not through shell task wrappers.
+
+### 4. Experience mode (baseline LLM vs evolved behavior)
+
+Use this mode to feel the difference directly: each prompt prints two answers.
+
+- `baseline>`: stateless standard assistant behavior
+- `evolved>`: continuity-aware session behavior with explicit uncertainty tracking structure
+
+```bash
+bash ./scripts/start_experience_env.sh --model deepseek-r1:1.5b --session-name exp1
+```
+
+Useful flags:
+
+- `--history-turns 12`
+- `--max-tokens 512`
+- `--enable-think`
+
+Session output files:
+
+- `outputs/live_chat_experience/<session_name>/transcript.jsonl`
+- `outputs/live_chat_experience/<session_name>/transcript.md`
+- `outputs/live_chat_experience/<session_name>/session_meta.json`
+
+If one model remains too generic, try another local model for clearer contrast:
+
+```bash
+bash ./scripts/start_experience_env.sh --model qwen2.5:3b --session-name exp_qwen
+```
+
+### 5. AGI experience benchmark + gate
+
+This pipeline measures whether the evolved mode is actually outperforming baseline on recall and continuity behavior.
+
+Run benchmark:
+
+```bash
+.venv/bin/python scripts/run_agi_experience_eval.py --model deepseek-r1:1.5b --session-name agi_eval_run
+```
+
+Run gate on latest/selected summary:
+
+```bash
+.venv/bin/python scripts/evaluate_agi_experience_gate.py --summary-path outputs/agi_experience_eval/agi_eval_run/evaluation_summary.json --report-path outputs/agi_experience_eval/agi_eval_run/gate_report.md
+```
+
+Config and thresholds:
+
+- `configs/agi_experience_eval.json`
+
+Output artifacts:
+
+- `outputs/agi_experience_eval/<session_name>/evaluation_summary.json`
+- `outputs/agi_experience_eval/<session_name>/evaluation_report.md`
+- `outputs/agi_experience_eval/<session_name>/gate_report.md`
+
+Latest smoke result in this repo:
+
+- baseline_memory_hit_rate: `0.000`
+- evolved_memory_hit_rate: `1.000`
+- evolved_structured_rate: `1.000`
+- gate: `PASS`
+
 ---
 
 ## How To Run

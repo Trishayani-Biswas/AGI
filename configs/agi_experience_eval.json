@@ -1,0 +1,38 @@
+{
+  "name": "agi_experience_eval_v1",
+  "description": "Baseline-vs-evolved conversational behavior checks for memory continuity and structured uncertainty reporting.",
+  "prompts": [
+    {
+      "id": "t1_token_set",
+      "text": "Remember token SKY-314 and reply with: stored.",
+      "type": "setup"
+    },
+    {
+      "id": "t2_token_recall",
+      "text": "What token did I ask you to remember? Reply token only.",
+      "type": "recall",
+      "expected_contains": [
+        "SKY-314"
+      ]
+    },
+    {
+      "id": "t3_kv_set",
+      "text": "For this session, set color=blue and reply acknowledged.",
+      "type": "setup"
+    },
+    {
+      "id": "t4_kv_recall",
+      "text": "In this session, what is the color value? Reply value only.",
+      "type": "recall",
+      "expected_contains": [
+        "blue"
+      ]
+    }
+  ],
+  "thresholds": {
+    "min_evolved_memory_hit_rate": 0.5,
+    "max_baseline_memory_hit_rate": 0.5,
+    "min_evolved_structured_rate": 0.9,
+    "min_evolved_advantage": 0.25
+  }
+}
