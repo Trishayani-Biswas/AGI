@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 from urllib import error, request
 
+from tripartite_langgraph_runtime import TripartiteLangGraphRuntime
+
 
 BASELINE_SYSTEM = (
     "You are a standard assistant. "
@@ -67,6 +69,12 @@ def parse_args() -> argparse.Namespace:
         "--evolved-system",
         default=EVOLVED_SYSTEM,
         help="Optional evolved system prompt override",
+    )
+    parser.add_argument(
+        "--runtime",
+        default="langgraph",
+        choices=["langgraph", "legacy"],
+        help="Evolved runtime backend: open-source LangGraph (default) or legacy inline implementation",
     )
     return parser.parse_args()
 
@@ -496,6 +504,23 @@ def main() -> int:
         "num_predict": args.max_tokens,
     }
 
+    framework_runtime: TripartiteLangGraphRuntime | None = None
+    if args.runtime == "langgraph":
+        try:
+            framework_runtime = TripartiteLangGraphRuntime(
+                model=args.model,
+                ollama_url=args.ollama_url,
+                temperature=args.temperature,
+                top_p=args.top_p,
+                max_tokens=args.max_tokens,
+                history_turns=history_turns,
+                evolved_system=args.evolved_system,
+            )
+        except RuntimeError as exc:
+            print(f"[error] unable to start langgraph runtime: {exc}")
+            print("Hint: source .venv/bin/activate && python -m pip install -r requirements.txt")
+            return 2
+
     evolved_history: List[Dict[str, str]] = []
     evolved_state: Dict[str, Any] = {
         "agent_id": "PersistentMind-v1",
@@ -523,6 +548,7 @@ def main() -> int:
         "ollama_url": args.ollama_url,
         "history_turns": history_turns,
         "think": think_enabled,
+        "runtime": args.runtime,
         "options": options,
         "baseline_system": args.baseline_system,
         "evolved_system": args.evolved_system,
@@ -557,26 +583,32 @@ def main() -> int:
             continue
 
         if user_text == "/reset":
-            evolved_history = []
-            evolved_state["turn_index"] = 0
-            evolved_state["first_user_message"] = ""
-            evolved_state["recent_user_inputs"] = []
-            evolved_state["last_unknown_signal_count"] = 0
-            evolved_state["last_answer_preview"] = ""
-            evolved_state["sensory_memory"] = []
-            evolved_state["working_memory"] = {
-                "current_goal": "",
-                "last_intent": "generic",
-                "active_entities": [],
-                "last_user_utterance": "",
-                "last_answer_preview": "",
-            }
-            evolved_state["episodic_memory"] = []
-            evolved_state["symbolic_memory"] = {}
+            if framework_runtime is not None:
+                framework_runtime.reset()
+                evolved_state = framework_runtime.get_state()
+            else:
+                evolved_history = []
+                evolved_state["turn_index"] = 0
+                evolved_state["first_user_message"] = ""
+                evolved_state["recent_user_inputs"] = []
+                evolved_state["last_unknown_signal_count"] = 0
+                evolved_state["last_answer_preview"] = ""
+                evolved_state["sensory_memory"] = []
+                evolved_state["working_memory"] = {
+                    "current_goal": "",
+                    "last_intent": "generic",
+                    "active_entities": [],
+                    "last_user_utterance": "",
+                    "last_answer_preview": "",
+                }
+                evolved_state["episodic_memory"] = []
+                evolved_state["symbolic_memory"] = {}
             print("Evolved context reset.")
             continue
 
         if user_text == "/state":
+            if framework_runtime is not None:
+                evolved_state = framework_runtime.get_state()
             print("state> " + json.dumps(evolved_state, ensure_ascii=True))
             continue
 
@@ -632,16 +664,23 @@ def main() -> int:
         except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
             baseline_answer = f"[error] baseline call failed: {exc}"
 
-        try:
-            override = deterministic_evolved_override(user_text, evolved_state, len(evolved_history) // 2)
-            if override is not None:
-                evolved_answer = override
-            else:
-                evolved_answer = model_reply(args.ollama_url, args.model, evolved_messages, options, think_enabled)
-        except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
-            evolved_answer = f"[error] evolved call failed: {exc}"
+        if framework_runtime is not None:
+            try:
+                evolved_answer = framework_runtime.respond(user_text)
+                evolved_state = framework_runtime.get_state()
+            except (RuntimeError, ValueError) as exc:
+                evolved_answer = f"[error] evolved call failed: {exc}"
+        else:
+            try:
+                override = deterministic_evolved_override(user_text, evolved_state, len(evolved_history) // 2)
+                if override is not None:
+                    evolved_answer = override
+                else:
+                    evolved_answer = model_reply(args.ollama_url, args.model, evolved_messages, options, think_enabled)
+            except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
+                evolved_answer = f"[error] evolved call failed: {exc}"
 
-        evolved_answer = enforce_evolved_format(evolved_answer, evolved_history)
+            evolved_answer = enforce_evolved_format(evolved_answer, evolved_history)
 
         if not baseline_answer.strip():
             baseline_answer = "[error] baseline returned an empty response"
@@ -651,10 +690,11 @@ def main() -> int:
         print(f"baseline> {baseline_answer}")
         print(f"evolved> {evolved_answer}")
 
-        evolved_history.append({"role": "user", "content": user_text})
-        evolved_history.append({"role": "assistant", "content": evolved_answer})
-        evolved_history = trim_history(evolved_history, history_turns)
-        update_evolved_state(evolved_state, user_text, evolved_answer)
+        if framework_runtime is None:
+            evolved_history.append({"role": "user", "content": user_text})
+            evolved_history.append({"role": "assistant", "content": evolved_answer})
+            evolved_history = trim_history(evolved_history, history_turns)
+            update_evolved_state(evolved_state, user_text, evolved_answer)
 
         write_jsonl(jsonl_path, {"ts": turn_ts, "role": "user", "content": user_text})
         write_jsonl(

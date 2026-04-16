@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from urllib import error, request
 
+from tripartite_langgraph_runtime import TripartiteLangGraphRuntime
+
 
 BASELINE_SYSTEM = "You are a standard assistant. Give direct concise answers."
 
@@ -50,6 +52,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-tokens", type=int, default=384, help="Generation token budget")
     parser.add_argument("--history-turns", type=int, default=8, help="Evolved-mode context history in turns")
     parser.add_argument("--enable-think", action="store_true", help="Enable think mode if supported")
+    parser.add_argument(
+        "--runtime",
+        default="langgraph",
+        choices=["langgraph", "legacy"],
+        help="Evolved runtime backend: open-source LangGraph (default) or legacy inline implementation",
+    )
     return parser.parse_args()
 
 
@@ -491,6 +499,25 @@ def main() -> None:
         "num_predict": args.max_tokens,
     }
 
+    framework_runtime: TripartiteLangGraphRuntime | None = None
+    if args.runtime == "langgraph":
+        try:
+            framework_runtime = TripartiteLangGraphRuntime(
+                model=args.model,
+                ollama_url=args.ollama_url,
+                temperature=args.temperature,
+                top_p=args.top_p,
+                max_tokens=args.max_tokens,
+                history_turns=history_turns,
+                evolved_system=EVOLVED_SYSTEM,
+            )
+        except RuntimeError as exc:
+            raise SystemExit(
+                "Unable to start langgraph runtime: "
+                f"{exc}\n"
+                "Hint: source .venv/bin/activate && python -m pip install -r requirements.txt"
+            )
+
     evolved_history: List[Dict[str, str]] = []
     evolved_state: Dict[str, Any] = {
         "agent_id": "PersistentMind-v1",
@@ -588,21 +615,28 @@ def main() -> None:
         except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
             baseline_answer = f"[error] baseline call failed: {exc}"
 
-        try:
-            override = deterministic_evolved_override(prompt_text, evolved_state, len(evolved_history) // 2)
-            if override is not None:
-                evolved_raw = override
-            else:
-                evolved_raw = model_reply(args.ollama_url, args.model, evolved_messages, options, think_enabled)
-        except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
-            evolved_raw = f"[error] evolved call failed: {exc}"
+        if framework_runtime is not None:
+            try:
+                evolved_answer = framework_runtime.respond(prompt_text)
+                evolved_state = framework_runtime.get_state()
+            except (RuntimeError, ValueError) as exc:
+                evolved_answer = f"[error] evolved call failed: {exc}"
+        else:
+            try:
+                override = deterministic_evolved_override(prompt_text, evolved_state, len(evolved_history) // 2)
+                if override is not None:
+                    evolved_raw = override
+                else:
+                    evolved_raw = model_reply(args.ollama_url, args.model, evolved_messages, options, think_enabled)
+            except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
+                evolved_raw = f"[error] evolved call failed: {exc}"
 
-        evolved_answer = enforce_evolved_format(evolved_raw, evolved_history)
+            evolved_answer = enforce_evolved_format(evolved_raw, evolved_history)
 
-        evolved_history.append({"role": "user", "content": prompt_text})
-        evolved_history.append({"role": "assistant", "content": evolved_answer})
-        evolved_history = trim_history(evolved_history, history_turns)
-        update_evolved_state(evolved_state, prompt_text, evolved_answer)
+            evolved_history.append({"role": "user", "content": prompt_text})
+            evolved_history.append({"role": "assistant", "content": evolved_answer})
+            evolved_history = trim_history(evolved_history, history_turns)
+            update_evolved_state(evolved_state, prompt_text, evolved_answer)
 
         evolved_has_structure = all(
             tag in evolved_answer.lower() for tag in ["answer:", "continuity:", "confidence:", "unknowns:"]
@@ -665,6 +699,7 @@ def main() -> None:
         "run_dir": str(run_dir),
         "model": args.model,
         "ollama_url": args.ollama_url,
+        "runtime": args.runtime,
         "history_turns": history_turns,
         "think": think_enabled,
         "options": options,

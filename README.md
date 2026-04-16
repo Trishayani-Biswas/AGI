@@ -26,6 +26,10 @@ Use this short checklist before closing any major implementation:
 - [ ] Outcome is explained simply: what changed and what improved or got worse.
 - [ ] Next best stage is proposed as concrete follow-up actions.
 
+## External Research Notes
+
+- Medium source review from full user-provided text (with implementation mapping): `docs/research/medium-how-to-build-an-agi-review.md`
+
 ---
 
 ## Bold Roadmap (Mastery-First)
@@ -221,6 +225,12 @@ Use this mode to feel the difference directly: each prompt prints two answers.
 - `baseline>`: stateless standard assistant behavior
 - `evolved>`: continuity-aware session behavior with memory hierarchy + explicit uncertainty tracking structure
 
+Default evolved runtime is now open-source framework orchestration:
+
+- LangGraph tripartite flow: CSG -> MMIE -> ECC
+- LangChain Ollama adapter for local model execution
+- Legacy inline path is still available with `--runtime legacy`
+
 Implemented memory hierarchy in evolved mode:
 
 - sensory memory: recent raw user turns
@@ -237,6 +247,7 @@ Useful flags:
 - `--history-turns 12`
 - `--max-tokens 512`
 - `--enable-think`
+- `--runtime legacy` (optional fallback)
 
 Session output files:
 
@@ -259,6 +270,11 @@ Run benchmark:
 ```bash
 .venv/bin/python scripts/run_agi_experience_eval.py --model deepseek-r1:1.5b --session-name agi_eval_run
 ```
+
+Notes:
+
+- Benchmark defaults to LangGraph runtime for evolved path.
+- Use `--runtime legacy` if you want strict backward comparison against the old inline implementation.
 
 Run gate on latest/selected summary:
 
