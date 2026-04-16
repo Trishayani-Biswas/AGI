@@ -108,11 +108,20 @@ That is the purpose of the Stage 2 NEAT pipeline in this repo.
 - `src/agi_sim/run_neat.py`
 : CLI for NEAT training mode.
 
+- `src/agi_sim/persistent_agent.py`
+: persistent single-agent inner loop with episode memory, self-critique, strategy revision, and held-out promotion gate.
+
+- `src/agi_sim/run_persistent.py`
+: CLI for persistent-agent benchmark mode.
+
 - `run_simulation.py`
 : root launcher for simulation mode.
 
 - `run_neat_training.py`
 : root launcher for NEAT mode.
+
+- `run_persistent_agi.py`
+: root launcher for persistent single-agent mode.
 
 - `scripts/build_experiment_observatory.py`
 : generates a watch-oriented scientific report from output artifacts.
@@ -183,6 +192,60 @@ python3 run_simulation.py --days 2500 --population 12 --proposer-model llama3.2:
 ```bash
 .venv/bin/python run_neat_training.py --generations 2 --eval-days 90 --max-population 90
 ```
+
+## C) Hybrid persistent-agent mode (outer loop + inner loop)
+
+Design implemented in this repo:
+
+- outer loop uses population evolution signals from NEAT runs to seed priors
+- inner loop trains one persistent agent mind across seen episodes
+- after every episode the agent performs self-critique and revises strategy
+- the agent now maintains an explicit self-model (risk predictions + confidence) and tracks calibration error
+- held-out episodes use unseen conditions (higher difficulty/shock) for evaluation
+- promotion gate accepts strategy updates only if candidate beats baseline on survival, shock recovery, consistency, and metacognitive calibration
+
+### Persistent Smoke Test
+
+```bash
+.venv/bin/python run_persistent_agi.py \
+  --train-episodes 3 \
+  --eval-episodes 2 \
+  --days-per-episode 60 \
+  --output-dir outputs/persistent_agi_smoke
+```
+
+### Standard run
+
+```bash
+.venv/bin/python run_persistent_agi.py \
+  --train-episodes 20 \
+  --eval-episodes 10 \
+  --days-per-episode 240 \
+  --train-world-difficulty 1.15 \
+  --train-shock-prob 0.012 \
+  --eval-world-difficulty 1.45 \
+  --eval-shock-prob 0.03 \
+  --survival-margin 0.02 \
+  --recovery-margin 0.03 \
+  --consistency-margin 0.02 \
+  --metacognitive-margin 0.01 \
+  --output-dir outputs/persistent_agi_main
+```
+
+Generated artifacts:
+
+- `outputs/persistent_agi_*/summary.json`
+- `outputs/persistent_agi_*/train_episode_log.jsonl`
+- `outputs/persistent_agi_*/self_critique_log.jsonl`
+- `outputs/persistent_agi_*/heldout_eval_log.jsonl`
+- `outputs/persistent_agi_*/selected_strategy.json`
+
+Key metrics in `summary.json` evaluation block:
+
+- `survival_score`
+- `shock_recovery_score`
+- `consistency_score`
+- `metacognitive_score` (computed from prediction Brier error)
 
 ### Standard Stage 2 run
 

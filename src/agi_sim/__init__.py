@@ -5,7 +5,9 @@ __all__ = [
     "entities",
     "llm",
     "neat_training",
+    "persistent_agent",
     "run_neat",
+    "run_persistent",
     "world",
     "simulation",
 ]
