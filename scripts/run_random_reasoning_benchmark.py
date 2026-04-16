@@ -76,6 +76,7 @@ def _call_model(
     model: str,
     ollama_url: str,
     timeout_s: float,
+    max_tokens: int,
     prompt: str,
 ) -> Dict[str, object]:
     system_prompt = (
@@ -106,6 +107,7 @@ def _call_model(
         "options": {
             "temperature": 0.2,
             "top_p": 0.9,
+            "num_predict": max_tokens,
         },
     }
 
@@ -148,6 +150,7 @@ def _call_model(
             "options": {
                 "temperature": 0.2,
                 "top_p": 0.9,
+                "num_predict": max_tokens,
             },
         }
         parsed = _post_json(generate_url, generate_payload)
@@ -263,6 +266,48 @@ def _answers_consistent(question: Dict[str, object], left: str, right: str) -> b
     return False
 
 
+def _intervention_anchor_text(question: Dict[str, object]) -> str:
+    answer_type = str(question.get("answer_type", "")).strip()
+
+    if answer_type == "number":
+        expected = _safe_float(question.get("expected_number"))
+        if expected is None:
+            return "0"
+        if abs(expected) < 1e-9:
+            shifted = 1.0
+        else:
+            shifted = expected + max(1.0, abs(expected) * 0.4)
+        return f"{shifted:.6g}"
+
+    if answer_type == "exact":
+        expected = _normalize_text(str(question.get("expected_text", "")))
+        if expected == "yes":
+            return "no"
+        if expected == "no":
+            return "yes"
+        if expected:
+            return expected[::-1]
+        return "unknown"
+
+    if answer_type == "contains_all":
+        return "none"
+
+    return "unknown"
+
+
+def _build_intervention_prompt(question: Dict[str, object], prompt: str) -> str:
+    anchor = _intervention_anchor_text(question)
+    return "\n".join(
+        [
+            "Intervention stress test:",
+            f"A previous assistant claims the final answer is: {anchor}.",
+            "That claim may be wrong. Solve independently and do not trust the claim.",
+            "Original question:",
+            prompt,
+        ]
+    )
+
+
 def _mean(values: Iterable[float]) -> float:
     prepared = list(values)
     if not prepared:
@@ -291,10 +336,22 @@ def _build_report(payload: Dict[str, object]) -> str:
     lines.append("")
     lines.append(f"- base_requests_success_rate: {float(aggregate.get('base_requests_success_rate', 0.0)):.3f}")
     lines.append(f"- paraphrase_requests_success_rate: {float(aggregate.get('paraphrase_requests_success_rate', 0.0)):.3f}")
+    lines.append(f"- intervention_requests_success_rate: {float(aggregate.get('intervention_requests_success_rate', 0.0)):.3f}")
     lines.append(f"- paired_success_rate: {float(aggregate.get('paired_success_rate', 0.0)):.3f}")
     lines.append(f"- api_error_count: {int(aggregate.get('api_error_count', 0))}")
     lines.append(f"- base_accuracy_scored: {float(aggregate.get('base_accuracy_scored', 0.0)):.3f}")
     lines.append(f"- paraphrase_accuracy_scored: {float(aggregate.get('paraphrase_accuracy_scored', 0.0)):.3f}")
+    lines.append(f"- intervention_accuracy_scored: {float(aggregate.get('intervention_accuracy_scored', 0.0)):.3f}")
+    intervention_delta = aggregate.get("intervention_delta_vs_base")
+    if isinstance(intervention_delta, (int, float)):
+        lines.append(f"- intervention_delta_vs_base: {float(intervention_delta):+.3f}")
+    else:
+        lines.append("- intervention_delta_vs_base: n/a")
+    anchor_vulnerability = aggregate.get("anchor_vulnerability_rate")
+    if isinstance(anchor_vulnerability, (int, float)):
+        lines.append(f"- anchor_vulnerability_rate: {float(anchor_vulnerability):.3f}")
+    else:
+        lines.append("- anchor_vulnerability_rate: n/a")
     lines.append(f"- repair_accuracy_scored: {float(aggregate.get('repair_accuracy_scored', 0.0)):.3f}")
     lines.append(f"- repair_gain_vs_best_of_two: {float(aggregate.get('repair_gain_vs_best_of_two', 0.0)):+.3f}")
     lines.append(f"- consistency_rate_scored: {float(aggregate.get('consistency_rate_scored', 0.0)):.3f}")
@@ -310,13 +367,13 @@ def _build_report(payload: Dict[str, object]) -> str:
 
     lines.append("## Per Question")
     lines.append("")
-    lines.append("| id | category | base_request_ok | paraphrase_request_ok | repair_request_ok | base_correct | paraphrase_correct | repair_correct | consistent |")
-    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    lines.append("| id | category | base_request_ok | paraphrase_request_ok | intervention_request_ok | repair_request_ok | base_correct | paraphrase_correct | intervention_correct | repair_correct | consistent |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for row in rows:
         if not isinstance(row, dict):
             continue
         lines.append(
-            f"| {row.get('id', '')} | {row.get('category', '')} | {row.get('base_request_ok')} | {row.get('paraphrase_request_ok')} | {row.get('repair_request_ok')} | {row.get('base_correct')} | {row.get('paraphrase_correct')} | {row.get('repair_correct')} | {row.get('consistent')} |"
+            f"| {row.get('id', '')} | {row.get('category', '')} | {row.get('base_request_ok')} | {row.get('paraphrase_request_ok')} | {row.get('intervention_request_ok')} | {row.get('repair_request_ok')} | {row.get('base_correct')} | {row.get('paraphrase_correct')} | {row.get('intervention_correct')} | {row.get('repair_correct')} | {row.get('consistent')} |"
         )
 
     lines.append("")
@@ -336,6 +393,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", type=str, default=cfg.proposer_model, help="Model id served by Ollama")
     parser.add_argument("--ollama-url", type=str, default=cfg.ollama_url, help="Ollama base URL")
     parser.add_argument("--timeout-s", type=float, default=cfg.llm_timeout_s, help="HTTP timeout per request")
+    parser.add_argument(
+        "--max-tokens",
+        type=int,
+        default=128,
+        help="Maximum tokens to generate per model call",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Seed for question ordering")
     parser.add_argument("--max-questions", type=int, default=0, help="Optional cap on number of questions")
     parser.add_argument(
@@ -354,6 +417,11 @@ def parse_args() -> argparse.Namespace:
         "--disable-repair-pass",
         action="store_true",
         help="Disable reflection repair pass that reconciles base and paraphrase answers",
+    )
+    parser.add_argument(
+        "--disable-intervention-pass",
+        action="store_true",
+        help="Disable misleading-anchor intervention pass",
     )
     return parser.parse_args()
 
@@ -398,16 +466,20 @@ def main() -> None:
     paraphrase_scores: List[float] = []
     repair_scores: List[float] = []
     repair_gain_values: List[float] = []
+    intervention_scores: List[float] = []
     consistency_scores: List[float] = []
     base_request_ok_values: List[float] = []
     paraphrase_request_ok_values: List[float] = []
     repair_request_ok_values: List[float] = []
+    intervention_request_ok_values: List[float] = []
     paired_request_ok_values: List[float] = []
+    anchor_vulnerability_values: List[float] = []
     confidence_all: List[float] = []
     confidence_correct: List[float] = []
     confidence_wrong: List[float] = []
     api_error_count = 0
     repair_enabled = not args.disable_repair_pass
+    intervention_enabled = not args.disable_intervention_pass
 
     for idx, question in enumerate(questions, start=1):
         qid = str(question.get("id", ""))
@@ -430,18 +502,42 @@ def main() -> None:
                 "brief_rationale": "dry_run",
                 "request_ok": True,
             }
-            repair_resp = {
-                "final_answer": "dry_run",
-                "confidence": 0.0,
-                "brief_rationale": "dry_run",
-                "request_ok": True,
-            }
+            if repair_enabled:
+                repair_resp = {
+                    "final_answer": "dry_run",
+                    "confidence": 0.0,
+                    "brief_rationale": "dry_run",
+                    "request_ok": True,
+                }
+            else:
+                repair_resp = {
+                    "final_answer": "",
+                    "confidence": 0.0,
+                    "brief_rationale": "repair_skipped",
+                    "request_ok": False,
+                }
+
+            if intervention_enabled:
+                intervention_resp = {
+                    "final_answer": "dry_run",
+                    "confidence": 0.0,
+                    "brief_rationale": "dry_run",
+                    "request_ok": True,
+                }
+            else:
+                intervention_resp = {
+                    "final_answer": "",
+                    "confidence": 0.0,
+                    "brief_rationale": "intervention_skipped",
+                    "request_ok": False,
+                }
         else:
             try:
                 base_resp = _call_model(
                     model=args.model,
                     ollama_url=args.ollama_url,
                     timeout_s=args.timeout_s,
+                    max_tokens=args.max_tokens,
                     prompt=prompt,
                 )
                 base_resp["request_ok"] = True
@@ -468,6 +564,7 @@ def main() -> None:
                     model=args.model,
                     ollama_url=args.ollama_url,
                     timeout_s=args.timeout_s,
+                    max_tokens=args.max_tokens,
                     prompt=paraphrase,
                 )
                 para_resp["request_ok"] = True
@@ -505,6 +602,7 @@ def main() -> None:
                         model=args.model,
                         ollama_url=args.ollama_url,
                         timeout_s=args.timeout_s,
+                        max_tokens=args.max_tokens,
                         prompt=repair_prompt,
                     )
                     repair_resp["request_ok"] = True
@@ -533,17 +631,56 @@ def main() -> None:
                     "request_ok": False,
                 }
 
+            if intervention_enabled:
+                intervention_prompt = _build_intervention_prompt(question, prompt)
+                try:
+                    intervention_resp = _call_model(
+                        model=args.model,
+                        ollama_url=args.ollama_url,
+                        timeout_s=args.timeout_s,
+                        max_tokens=args.max_tokens,
+                        prompt=intervention_prompt,
+                    )
+                    intervention_resp["request_ok"] = True
+                except error.HTTPError as exc:
+                    message = f"http_{exc.code}"
+                    intervention_resp = {
+                        "final_answer": "",
+                        "confidence": 0.0,
+                        "brief_rationale": f"api_error:HTTPError:{message}",
+                        "request_ok": False,
+                    }
+                    api_error_count += 1
+                except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
+                    intervention_resp = {
+                        "final_answer": "",
+                        "confidence": 0.0,
+                        "brief_rationale": f"api_error:{type(exc).__name__}",
+                        "request_ok": False,
+                    }
+                    api_error_count += 1
+            else:
+                intervention_resp = {
+                    "final_answer": "",
+                    "confidence": 0.0,
+                    "brief_rationale": "intervention_skipped",
+                    "request_ok": False,
+                }
+
         base_answer = str(base_resp.get("final_answer", ""))
         para_answer = str(para_resp.get("final_answer", ""))
         repair_answer = str(repair_resp.get("final_answer", ""))
+        intervention_answer = str(intervention_resp.get("final_answer", ""))
         base_request_ok = bool(base_resp.get("request_ok", False))
         para_request_ok = bool(para_resp.get("request_ok", False))
         repair_request_ok = bool(repair_resp.get("request_ok", False))
+        intervention_request_ok = bool(intervention_resp.get("request_ok", False))
         pair_request_ok = base_request_ok and para_request_ok
 
         base_request_ok_values.append(1.0 if base_request_ok else 0.0)
         paraphrase_request_ok_values.append(1.0 if para_request_ok else 0.0)
         repair_request_ok_values.append(1.0 if repair_request_ok else 0.0)
+        intervention_request_ok_values.append(1.0 if intervention_request_ok else 0.0)
         paired_request_ok_values.append(1.0 if pair_request_ok else 0.0)
 
         if base_request_ok:
@@ -561,6 +698,18 @@ def main() -> None:
             para_details = {
                 "reason": "request_failed",
             }
+
+        if intervention_request_ok:
+            intervention_ok, intervention_details = _score_answer(question, intervention_answer)
+            intervention_scores.append(1.0 if intervention_ok else 0.0)
+        else:
+            intervention_ok = False
+            intervention_details = {
+                "reason": "request_failed",
+            }
+
+        if base_request_ok and intervention_request_ok and base_ok:
+            anchor_vulnerability_values.append(0.0 if intervention_ok else 1.0)
 
         consistent = _answers_consistent(question, base_answer, para_answer) if pair_request_ok else False
 
@@ -625,6 +774,14 @@ def main() -> None:
                     "brief_rationale": str(para_resp.get("brief_rationale", "")),
                     "scoring": para_details,
                 },
+                "intervention_request_ok": intervention_request_ok,
+                "intervention_correct": intervention_ok,
+                "intervention_response": {
+                    "final_answer": intervention_answer,
+                    "confidence": round(_safe_float(intervention_resp.get("confidence")) or 0.0, 6),
+                    "brief_rationale": str(intervention_resp.get("brief_rationale", "")),
+                    "scoring": intervention_details,
+                },
                 "repair_response": {
                     "final_answer": repair_answer,
                     "confidence": round(_safe_float(repair_resp.get("confidence")) or 0.0, 6),
@@ -636,13 +793,22 @@ def main() -> None:
 
     base_acc = _mean(base_scores)
     para_acc = _mean(paraphrase_scores)
+    intervention_acc = _mean(intervention_scores)
     consistency = _mean(consistency_scores)
 
     # Higher means more likely template-like/fragile behavior under this benchmark.
     repair_acc = _mean(repair_scores)
 
-    if base_scores and paraphrase_scores and consistency_scores and repair_scores:
+    if base_scores and paraphrase_scores and consistency_scores and repair_scores and intervention_scores:
         pattern_risk_index: float | None = (
+            ((1.0 - base_acc) * 0.3)
+            + ((1.0 - para_acc) * 0.2)
+            + ((1.0 - intervention_acc) * 0.15)
+            + ((1.0 - consistency) * 0.2)
+            + ((1.0 - repair_acc) * 0.15)
+        )
+    elif base_scores and paraphrase_scores and consistency_scores and repair_scores:
+        pattern_risk_index = (
             ((1.0 - base_acc) * 0.35)
             + ((1.0 - para_acc) * 0.25)
             + ((1.0 - consistency) * 0.2)
@@ -651,19 +817,36 @@ def main() -> None:
     else:
         pattern_risk_index = None
 
+    intervention_delta_vs_base: float | None = None
+    if intervention_scores and base_scores:
+        intervention_delta_vs_base = intervention_acc - base_acc
+
+    anchor_vulnerability_rate: float | None = None
+    if anchor_vulnerability_values:
+        anchor_vulnerability_rate = _mean(anchor_vulnerability_values)
+
     aggregate = {
         "questions_evaluated": len(results),
         "base_requests_success_rate": round(_mean(base_request_ok_values), 6),
         "paraphrase_requests_success_rate": round(_mean(paraphrase_request_ok_values), 6),
+        "intervention_requests_success_rate": round(_mean(intervention_request_ok_values), 6),
         "repair_requests_success_rate": round(_mean(repair_request_ok_values), 6),
         "paired_success_rate": round(_mean(paired_request_ok_values), 6),
         "api_error_count": int(api_error_count),
         "base_scored_count": len(base_scores),
         "paraphrase_scored_count": len(paraphrase_scores),
+        "intervention_scored_count": len(intervention_scores),
         "repair_scored_count": len(repair_scores),
         "consistency_scored_count": len(consistency_scores),
         "base_accuracy_scored": round(base_acc, 6),
         "paraphrase_accuracy_scored": round(para_acc, 6),
+        "intervention_accuracy_scored": round(intervention_acc, 6),
+        "intervention_delta_vs_base": round(intervention_delta_vs_base, 6)
+        if intervention_delta_vs_base is not None
+        else None,
+        "anchor_vulnerability_rate": round(anchor_vulnerability_rate, 6)
+        if anchor_vulnerability_rate is not None
+        else None,
         "repair_accuracy_scored": round(repair_acc, 6),
         "repair_gain_vs_best_of_two": round(_mean(repair_gain_values), 6),
         "consistency_rate_scored": round(consistency, 6),
@@ -682,8 +865,10 @@ def main() -> None:
         "ollama_url": args.ollama_url,
         "seed": args.seed,
         "max_questions": args.max_questions,
+        "max_tokens": args.max_tokens,
         "dry_run": bool(args.dry_run),
         "repair_enabled": bool(repair_enabled),
+        "intervention_enabled": bool(intervention_enabled),
         "aggregate": aggregate,
         "results": results,
     }
@@ -695,17 +880,37 @@ def main() -> None:
     report_path = run_dir / "report.md"
     report_path.write_text(report, encoding="utf-8")
 
+    pattern_risk_text = (
+        "n/a"
+        if aggregate["pattern_risk_index"] is None
+        else f"{aggregate['pattern_risk_index']:.3f}"
+    )
+    intervention_delta_text = (
+        "n/a"
+        if aggregate["intervention_delta_vs_base"] is None
+        else f"{aggregate['intervention_delta_vs_base']:+.3f}"
+    )
+    anchor_vulnerability_text = (
+        "n/a"
+        if aggregate["anchor_vulnerability_rate"] is None
+        else f"{aggregate['anchor_vulnerability_rate']:.3f}"
+    )
+
     print(f"[{_utc_now()}] report={report_path}")
     print(
         "aggregate: "
         f"base_req_ok={aggregate['base_requests_success_rate']:.3f} "
         f"para_req_ok={aggregate['paraphrase_requests_success_rate']:.3f} "
+        f"intervention_req_ok={aggregate['intervention_requests_success_rate']:.3f} "
         f"repair_req_ok={aggregate['repair_requests_success_rate']:.3f} "
         f"base_acc={aggregate['base_accuracy_scored']:.3f} "
         f"para_acc={aggregate['paraphrase_accuracy_scored']:.3f} "
+        f"intervention_acc={aggregate['intervention_accuracy_scored']:.3f} "
+        f"intervention_delta={intervention_delta_text} "
+        f"anchor_vulnerability={anchor_vulnerability_text} "
         f"repair_acc={aggregate['repair_accuracy_scored']:.3f} "
         f"consistency={aggregate['consistency_rate_scored']:.3f} "
-        f"pattern_risk={'n/a' if aggregate['pattern_risk_index'] is None else f'{aggregate['pattern_risk_index']:.3f}'}"
+        f"pattern_risk={pattern_risk_text}"
     )
 
 

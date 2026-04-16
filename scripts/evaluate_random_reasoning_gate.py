@@ -127,6 +127,13 @@ def main() -> None:
     min_paired_success = _safe_float(thresholds.get("min_paired_success_rate")) or 0.0
     min_base_acc = _safe_float(thresholds.get("min_base_accuracy_scored")) or 0.0
     min_para_acc = _safe_float(thresholds.get("min_paraphrase_accuracy_scored")) or 0.0
+    min_intervention_acc = _safe_float(thresholds.get("min_intervention_accuracy_scored")) or 0.0
+    min_intervention_delta_vs_base = _safe_float(thresholds.get("min_intervention_delta_vs_base"))
+    if min_intervention_delta_vs_base is None:
+        min_intervention_delta_vs_base = -1.0
+    max_anchor_vulnerability_rate = _safe_float(thresholds.get("max_anchor_vulnerability_rate"))
+    if max_anchor_vulnerability_rate is None:
+        max_anchor_vulnerability_rate = 1.0
     min_repair_acc = _safe_float(thresholds.get("min_repair_accuracy_scored")) or 0.0
     min_repair_gain = _safe_float(thresholds.get("min_repair_gain_vs_best_of_two")) or 0.0
     min_consistency = _safe_float(thresholds.get("min_consistency_rate_scored")) or 0.0
@@ -139,6 +146,9 @@ def main() -> None:
 
     min_base_delta = _safe_float(thresholds.get("min_base_accuracy_delta_vs_baseline")) or 0.0
     min_para_delta = _safe_float(thresholds.get("min_paraphrase_accuracy_delta_vs_baseline")) or 0.0
+    min_intervention_delta = (
+        _safe_float(thresholds.get("min_intervention_accuracy_delta_vs_baseline")) or 0.0
+    )
     min_consistency_delta = _safe_float(thresholds.get("min_consistency_delta_vs_baseline")) or 0.0
     max_pattern_risk_delta = _safe_float(thresholds.get("max_pattern_risk_delta_vs_baseline"))
     if max_pattern_risk_delta is None:
@@ -147,6 +157,9 @@ def main() -> None:
     candidate_paired_success = _agg_metric(candidate_summary, "paired_success_rate")
     candidate_base_acc = _agg_metric(candidate_summary, "base_accuracy_scored")
     candidate_para_acc = _agg_metric(candidate_summary, "paraphrase_accuracy_scored")
+    candidate_intervention_acc = _agg_metric(candidate_summary, "intervention_accuracy_scored")
+    candidate_intervention_delta_vs_base = _agg_metric(candidate_summary, "intervention_delta_vs_base")
+    candidate_anchor_vulnerability = _agg_metric(candidate_summary, "anchor_vulnerability_rate")
     candidate_repair_acc = _agg_metric(candidate_summary, "repair_accuracy_scored")
     candidate_repair_gain = _agg_metric(candidate_summary, "repair_gain_vs_best_of_two")
     candidate_consistency = _agg_metric(candidate_summary, "consistency_rate_scored")
@@ -186,6 +199,47 @@ def main() -> None:
             "Paraphrase accuracy meets threshold",
             para_acc_pass,
             f"candidate={_fmt(candidate_para_acc)} required>={_fmt(min_para_acc)}",
+        )
+    )
+
+    intervention_acc_pass = (
+        candidate_intervention_acc is not None and candidate_intervention_acc >= min_intervention_acc
+    )
+    checks.append(
+        (
+            "Intervention accuracy meets threshold",
+            intervention_acc_pass,
+            f"candidate={_fmt(candidate_intervention_acc)} required>={_fmt(min_intervention_acc)}",
+        )
+    )
+
+    intervention_delta_vs_base_pass = (
+        candidate_intervention_delta_vs_base is not None
+        and candidate_intervention_delta_vs_base >= min_intervention_delta_vs_base
+    )
+    checks.append(
+        (
+            "Intervention delta vs base meets threshold",
+            intervention_delta_vs_base_pass,
+            (
+                f"candidate={_fmt(candidate_intervention_delta_vs_base)} "
+                f"required>={_fmt(min_intervention_delta_vs_base)}"
+            ),
+        )
+    )
+
+    anchor_vulnerability_pass = (
+        candidate_anchor_vulnerability is not None
+        and candidate_anchor_vulnerability <= max_anchor_vulnerability_rate
+    )
+    checks.append(
+        (
+            "Anchor vulnerability is below max",
+            anchor_vulnerability_pass,
+            (
+                f"candidate={_fmt(candidate_anchor_vulnerability)} "
+                f"allowed<={_fmt(max_anchor_vulnerability_rate)}"
+            ),
         )
     )
 
@@ -237,6 +291,7 @@ def main() -> None:
     if baseline_summary is not None:
         baseline_base_acc = _agg_metric(baseline_summary, "base_accuracy_scored")
         baseline_para_acc = _agg_metric(baseline_summary, "paraphrase_accuracy_scored")
+        baseline_intervention_acc = _agg_metric(baseline_summary, "intervention_accuracy_scored")
         baseline_consistency = _agg_metric(baseline_summary, "consistency_rate_scored")
         baseline_pattern_risk = _agg_metric(baseline_summary, "pattern_risk_index")
 
@@ -268,6 +323,22 @@ def main() -> None:
                 (
                     f"candidate={_fmt(candidate_para_acc)} baseline={_fmt(baseline_para_acc)} "
                     f"required_delta>={_fmt(min_para_delta)}"
+                ),
+            )
+        )
+
+        intervention_delta_pass = (
+            baseline_intervention_acc is not None
+            and candidate_intervention_acc is not None
+            and (candidate_intervention_acc - baseline_intervention_acc) >= min_intervention_delta
+        )
+        checks.append(
+            (
+                "Intervention accuracy delta vs baseline meets threshold",
+                intervention_delta_pass,
+                (
+                    f"candidate={_fmt(candidate_intervention_acc)} baseline={_fmt(baseline_intervention_acc)} "
+                    f"required_delta>={_fmt(min_intervention_delta)}"
                 ),
             )
         )
@@ -323,6 +394,9 @@ def main() -> None:
     lines.append(f"- min_paired_success_rate: {min_paired_success}")
     lines.append(f"- min_base_accuracy_scored: {min_base_acc}")
     lines.append(f"- min_paraphrase_accuracy_scored: {min_para_acc}")
+    lines.append(f"- min_intervention_accuracy_scored: {min_intervention_acc}")
+    lines.append(f"- min_intervention_delta_vs_base: {min_intervention_delta_vs_base}")
+    lines.append(f"- max_anchor_vulnerability_rate: {max_anchor_vulnerability_rate}")
     lines.append(f"- min_repair_accuracy_scored: {min_repair_acc}")
     lines.append(f"- min_repair_gain_vs_best_of_two: {min_repair_gain}")
     lines.append(f"- min_consistency_rate_scored: {min_consistency}")
@@ -330,6 +404,7 @@ def main() -> None:
     lines.append(f"- max_confidence_overconfidence_gap: {max_overconfidence_gap}")
     lines.append(f"- min_base_accuracy_delta_vs_baseline: {min_base_delta}")
     lines.append(f"- min_paraphrase_accuracy_delta_vs_baseline: {min_para_delta}")
+    lines.append(f"- min_intervention_accuracy_delta_vs_baseline: {min_intervention_delta}")
     lines.append(f"- min_consistency_delta_vs_baseline: {min_consistency_delta}")
     lines.append(f"- max_pattern_risk_delta_vs_baseline: {max_pattern_risk_delta}")
     lines.append("")

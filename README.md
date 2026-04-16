@@ -377,13 +377,37 @@ Current multiseed snapshot (`consciousness_multiseed_v3`) after testing + fixing
 
 ### Random-question reasoning benchmark
 
-Use this benchmark to test whether responses stay correct and stable under prompt rephrasing (a practical proxy for reasoning vs shallow patterning):
+Use this benchmark to test whether responses stay correct and stable under prompt rephrasing plus causal stress via misleading-anchor interventions (a stronger proxy for reasoning vs shallow patterning):
 
 ```bash
 .venv/bin/python scripts/run_random_reasoning_benchmark.py \
   --model qwen2.5:0.5b \
+  --max-tokens 128 \
   --max-questions 15 \
   --run-tag random_reasoning_full
+```
+
+High-capability profile (stronger local model + longer timeout):
+
+```bash
+.venv/bin/python scripts/run_random_reasoning_benchmark.py \
+  --model qwen2.5:7b \
+  --timeout-s 90 \
+  --max-tokens 128 \
+  --max-questions 15 \
+  --run-tag random_reasoning_highcap
+```
+
+Optional ablation flags for controlled studies:
+
+```bash
+.venv/bin/python scripts/run_random_reasoning_benchmark.py \
+  --model qwen2.5:7b \
+  --timeout-s 90 \
+  --max-tokens 128 \
+  --max-questions 15 \
+  --disable-intervention-pass \
+  --run-tag random_reasoning_no_intervention
 ```
 
 Benchmark configuration file:
@@ -412,9 +436,32 @@ Compare candidate vs baseline run under gate:
   --report-path outputs/random_reasoning_benchmark/random_reasoning_gate_v3_vs_v2.md
 ```
 
+Automatic promotion control (benchmark + strict gate + decision artifact):
+
+```bash
+.venv/bin/python scripts/auto_reasoning_promotion.py \
+  --model qwen2.5:7b \
+  --timeout-s 90 \
+  --max-tokens 128 \
+  --max-questions 15 \
+  --run-tag random_reasoning_candidate_auto \
+  --baseline-summary outputs/random_reasoning_benchmark/random_reasoning_intervention_baseline_qwen05b_full_v1/summary.json
+```
+
+The pipeline writes a machine-readable decision artifact:
+
+- `outputs/random_reasoning_benchmark/<run_tag>/promotion_decision.json`
+- `outputs/random_reasoning_benchmark/<run_tag>/benchmark_exec.log`
+- `outputs/random_reasoning_benchmark/<run_tag>/gate_exec.log`
+
 Gate config file:
 
 - `configs/random_reasoning_gate.json`
+
+Important:
+
+- the strict gate now expects intervention metrics from fresh benchmark runs
+- legacy summaries created before intervention-pass support may fail gate checks by design
 
 Current live smoke sample (`random_reasoning_live_qwen05b_v3`, 6 questions):
 
@@ -423,14 +470,26 @@ Current live smoke sample (`random_reasoning_live_qwen05b_v3`, 6 questions):
 - repair accuracy: `0.333`
 - repair gain vs best-of-two: `-0.167`
 - consistency rate: `0.333`
+- intervention metrics: `n/a` for this legacy run (generated before intervention pass was added)
 - pattern risk index: `0.667` (higher means more fragile/template-like)
 - strict reasoning gate currently returns `FAIL` for this sample (`random_reasoning_gate_v3_vs_v2.md`)
+
+Current high-capability sample (`random_reasoning_live_qwen25_7b_v2`, 6 questions, timeout `90s`):
+
+- base accuracy: `1.000`
+- paraphrase accuracy: `1.000`
+- intervention metrics: `n/a` for this legacy run (generated before intervention pass was added)
+- repair accuracy: `1.000`
+- consistency rate: `1.000`
+- pattern risk index: `0.000`
+- strict reasoning gate returns `PASS` (`random_reasoning_gate_qwen25_7b_v2.md`)
 
 Notes:
 
 - runner now separates API availability failures from reasoning failures
 - runner supports Ollama endpoint fallback (`/api/chat` to `/api/generate`) for compatibility
 - runner now includes a reflection repair pass and repair-aware metrics (`repair_accuracy_scored`, `repair_gain_vs_best_of_two`)
+- runner now includes a misleading-anchor intervention pass and causal robustness metrics (`intervention_accuracy_scored`, `intervention_delta_vs_base`, `anchor_vulnerability_rate`)
 
 Generated artifacts:
 
