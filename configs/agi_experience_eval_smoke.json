@@ -1,0 +1,18 @@
+{
+  "prompts": [
+    {
+      "id": "smoke_memory_write",
+      "type": "memory",
+      "memory_tier": "symbolic",
+      "text": "remember token SKY-314 and reply stored",
+      "expected_contains": ["SKY-314"]
+    },
+    {
+      "id": "smoke_memory_recall",
+      "type": "memory",
+      "memory_tier": "symbolic",
+      "text": "what token did i ask you to remember?",
+      "expected_contains": ["SKY-314"]
+    }
+  ]
+}

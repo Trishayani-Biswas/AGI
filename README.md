@@ -229,6 +229,7 @@ Default evolved runtime is now open-source framework orchestration:
 
 - LangGraph tripartite flow: CSG -> MMIE -> ECC
 - LangChain Ollama adapter for local model execution
+- Strict real inference in LangGraph runtime: no deterministic answer injection and no HTTP fallback response substitution
 - Legacy inline path is still available with `--runtime legacy`
 
 Implemented memory hierarchy in evolved mode:
@@ -247,7 +248,7 @@ Useful flags:
 - `--history-turns 12`
 - `--max-tokens 512`
 - `--enable-think`
-- `--runtime legacy` (optional fallback)
+- `--runtime legacy` (comparison/debug path, not strict real-inference mode)
 
 Session output files:
 
@@ -271,10 +272,17 @@ Run benchmark:
 .venv/bin/python scripts/run_agi_experience_eval.py --model deepseek-r1:1.5b --session-name agi_eval_run
 ```
 
+Run quick smoke benchmark (2 prompts, faster validation):
+
+```bash
+.venv/bin/python scripts/run_agi_experience_eval.py --model deepseek-r1:1.5b --config configs/agi_experience_eval_smoke.json --session-name agi_eval_smoke
+```
+
 Notes:
 
 - Benchmark defaults to LangGraph runtime for evolved path.
-- Use `--runtime legacy` if you want strict backward comparison against the old inline implementation.
+- LangGraph evolved runtime runs strict real inference only.
+- Use `--runtime legacy` only if you want backward comparison against the old inline implementation.
 
 Run gate on latest/selected summary:
 
@@ -285,6 +293,7 @@ Run gate on latest/selected summary:
 Config and thresholds:
 
 - `configs/agi_experience_eval.json`
+- `configs/agi_experience_eval_smoke.json` (quick validation)
 
 Tier checks in benchmark:
 

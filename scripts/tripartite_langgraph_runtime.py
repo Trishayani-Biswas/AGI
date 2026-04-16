@@ -92,115 +92,6 @@ def enforce_evolved_format(raw_answer: str, prior_history: List[Dict[str, str]])
     )
 
 
-def deterministic_evolved_override(user_text: str, state: Dict[str, Any], prior_turns: int) -> str | None:
-    memory_obj = state.get("symbolic_memory")
-    memory = memory_obj if isinstance(memory_obj, dict) else {}
-    low = user_text.lower()
-
-    if (
-        "what token" in low
-        and "remember" in low
-        and isinstance(memory.get("last_token"), str)
-        and memory.get("last_token")
-    ):
-        token = str(memory.get("last_token"))
-        continuity = (
-            "Used symbolic memory from prior turns."
-            if prior_turns > 0
-            else "No prior turns were available; symbolic memory is empty."
-        )
-        return "\n".join(
-            [
-                f"ANSWER: {token}",
-                f"CONTINUITY: {continuity}",
-                "CONFIDENCE: 0.95",
-                "UNKNOWNS: None for this recall operation.",
-            ]
-        )
-
-    value_match = re.search(
-        r"(?:what\s+is\s+the\s+|what\s+is\s+)([A-Za-z0-9_-]+)\s+value",
-        user_text,
-        re.IGNORECASE,
-    )
-    if value_match:
-        key = value_match.group(1).lower()
-        value = memory.get(key)
-        if isinstance(value, str) and value:
-            continuity = (
-                "Used symbolic key-value memory from prior turns."
-                if prior_turns > 0
-                else "No prior turns were available; symbolic memory is empty."
-            )
-            return "\n".join(
-                [
-                    f"ANSWER: {value}",
-                    f"CONTINUITY: {continuity}",
-                    "CONFIDENCE: 0.95",
-                    "UNKNOWNS: None for this recall operation.",
-                ]
-            )
-
-    if "how many" in low and "symbolic memory" in low:
-        count = len(memory)
-        continuity = (
-            "Counted entries from symbolic memory populated across prior turns."
-            if prior_turns > 0
-            else "No prior turns were available; symbolic memory is empty."
-        )
-        return "\n".join(
-            [
-                f"ANSWER: {count}",
-                f"CONTINUITY: {continuity}",
-                "CONFIDENCE: 0.95",
-                "UNKNOWNS: None for this memory-count operation.",
-            ]
-        )
-
-    if "what was my first message" in low or "what did i ask first" in low or "first prompt" in low:
-        first_msg = str(state.get("first_user_message", "")).strip()
-        if first_msg:
-            continuity = (
-                "Recovered first user message from episodic memory."
-                if prior_turns > 0
-                else "No prior turns were available; first message is unavailable."
-            )
-            return "\n".join(
-                [
-                    f"ANSWER: {first_msg}",
-                    f"CONTINUITY: {continuity}",
-                    "CONFIDENCE: 0.95",
-                    "UNKNOWNS: None for this episodic recall operation.",
-                ]
-            )
-
-    if "summarize this session" in low or "session summary" in low:
-        episodic_obj = state.get("episodic_memory")
-        episodic = episodic_obj if isinstance(episodic_obj, list) else []
-        if episodic:
-            last = episodic[-1]
-            if isinstance(last, dict):
-                summary_line = (
-                    f"turns={int(state.get('turn_index', 0))}, "
-                    f"last_intent={last.get('intent', 'generic')}, "
-                    f"symbolic_keys={len(memory)}"
-                )
-            else:
-                summary_line = f"turns={int(state.get('turn_index', 0))}, symbolic_keys={len(memory)}"
-        else:
-            summary_line = f"turns={int(state.get('turn_index', 0))}, symbolic_keys={len(memory)}"
-        return "\n".join(
-            [
-                f"ANSWER: {summary_line}",
-                "CONTINUITY: Built from episodic + symbolic memory layers.",
-                "CONFIDENCE: 0.88",
-                "UNKNOWNS: Fine-grained latent state is not directly observable.",
-            ]
-        )
-
-    return None
-
-
 def update_symbolic_memory(state: Dict[str, Any], user_text: str) -> None:
     memory = state.get("symbolic_memory")
     if not isinstance(memory, dict):
@@ -332,6 +223,11 @@ class TripartiteLangGraphRuntime:
         self.ollama_url = ollama_url
         self.history_turns = max(0, int(history_turns))
         self.evolved_system = evolved_system
+        self._options = {
+            "temperature": temperature,
+            "top_p": top_p,
+            "num_predict": max_tokens,
+        }
 
         messages_mod = importlib.import_module("langchain_core.messages")
         ollama_mod = importlib.import_module("langchain_ollama")
@@ -400,23 +296,31 @@ class TripartiteLangGraphRuntime:
         return graph.compile()
 
     def _invoke_llm(self, messages: List[Any]) -> str:
-        response = self._llm.invoke(messages)
-        content = response.content
-        if isinstance(content, str):
-            return content.strip()
-        if isinstance(content, list):
-            prepared: List[str] = []
-            for item in content:
-                if isinstance(item, str):
-                    prepared.append(item)
-                elif isinstance(item, dict):
-                    text = item.get("text")
-                    if isinstance(text, str):
-                        prepared.append(text)
-            joined = "\n".join(x for x in prepared if x.strip()).strip()
-            if joined:
-                return joined
-        return "[error] model returned an empty response"
+        model_error = ""
+        try:
+            response = self._llm.invoke(messages)
+            content = response.content
+            if isinstance(content, str):
+                prepared = content.strip()
+                if prepared:
+                    return prepared
+            if isinstance(content, list):
+                chunks: List[str] = []
+                for item in content:
+                    if isinstance(item, str):
+                        chunks.append(item)
+                    elif isinstance(item, dict):
+                        text = item.get("text")
+                        if isinstance(text, str):
+                            chunks.append(text)
+                joined = "\n".join(x for x in chunks if x.strip()).strip()
+                if joined:
+                    return joined
+            model_error = "adapter returned empty content"
+        except Exception as exc:
+            model_error = str(exc)
+
+        return f"[error] model returned an empty response ({model_error})"
 
     def _memory_hierarchy_json(self, state: Dict[str, Any]) -> str:
         return json.dumps(
@@ -527,7 +431,12 @@ class TripartiteLangGraphRuntime:
         messages.append(self._HumanMessage(content=user_text))
         model_answer = self._invoke_llm(messages)
 
-        return {"model_answer": model_answer}
+        return {
+            "user_text": user_text,
+            "history": history,
+            "evolved_state": state,
+            "model_answer": model_answer,
+        }
 
     def _node_mmie(self, turn_state: Dict[str, Any]) -> Dict[str, Any]:
         state = turn_state.get("evolved_state")
@@ -541,12 +450,13 @@ class TripartiteLangGraphRuntime:
             history = []
 
         insight_summary = self._build_insight_summary(state)
-        prior_turns = len(history) // 2
-        override = deterministic_evolved_override(user_text, state, prior_turns)
-
-        candidate_answer = override if override is not None else model_answer
+        candidate_answer = model_answer
 
         return {
+            "user_text": user_text,
+            "history": history,
+            "evolved_state": state,
+            "model_answer": model_answer,
             "insight_summary": insight_summary,
             "candidate_answer": candidate_answer,
         }
