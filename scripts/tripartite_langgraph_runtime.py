@@ -66,12 +66,59 @@ def contains_uncertainty(text: str) -> bool:
     return any(cue in low for cue in cues)
 
 
+def _normalize_confidence(raw: str, default_value: float) -> str:
+    match = re.search(r"([01](?:\.\d+)?)", raw)
+    if not match:
+        return f"{default_value:.2f}"
+    try:
+        value = float(match.group(1))
+    except ValueError:
+        return f"{default_value:.2f}"
+    value = min(1.0, max(0.0, value))
+    return f"{value:.2f}"
+
+
 def enforce_evolved_format(raw_answer: str, prior_history: List[Dict[str, str]]) -> str:
     answer = raw_answer.strip() or "[error] evolved returned an empty response"
 
-    low = answer.lower()
-    if all(tag in low for tag in ["answer:", "continuity:", "confidence:", "unknowns:"]):
-        return answer
+    sections: Dict[str, List[str]] = {
+        "answer": [],
+        "continuity": [],
+        "confidence": [],
+        "unknowns": [],
+    }
+    active = "answer"
+    for line in answer.splitlines():
+        stripped = line.strip()
+        upper = stripped.upper()
+
+        if upper.startswith("ANSWER:"):
+            active = "answer"
+            content = stripped[len("ANSWER:") :].strip()
+            if content:
+                sections[active].append(content)
+            continue
+        if upper.startswith("CONTINUITY:"):
+            active = "continuity"
+            content = stripped[len("CONTINUITY:") :].strip()
+            if content:
+                sections[active].append(content)
+            continue
+        if upper.startswith("CONFIDENCE:"):
+            active = "confidence"
+            content = stripped[len("CONFIDENCE:") :].strip()
+            if content:
+                sections[active].append(content)
+            continue
+        if upper.startswith("UNKNOWNS:"):
+            active = "unknowns"
+            content = stripped[len("UNKNOWNS:") :].strip()
+            if content:
+                sections[active].append(content)
+            continue
+
+        if stripped:
+            sections[active].append(stripped)
 
     prior_turns = len(prior_history) // 2
     if prior_turns <= 0:
@@ -79,15 +126,28 @@ def enforce_evolved_format(raw_answer: str, prior_history: List[Dict[str, str]])
     else:
         continuity = f"Used {prior_turns} prior turn(s) from this session for continuity."
 
-    confidence = 0.46 if contains_uncertainty(answer) else 0.74
+    confidence_default = 0.46 if contains_uncertainty(answer) else 0.74
     unknowns = "Real internal architecture changes are unknown unless explicitly provided in-session."
+
+    normalized_answer = "\n".join(sections["answer"]).strip()
+    if not normalized_answer:
+        normalized_answer = answer
+
+    normalized_continuity = " ".join(sections["continuity"]).strip() or continuity
+    low_continuity = normalized_continuity.lower()
+    if prior_turns > 0 and "no prior turns" in low_continuity:
+        normalized_continuity = continuity
+    if prior_turns == 0 and "used " in low_continuity and "prior turn" in low_continuity:
+        normalized_continuity = continuity
+    normalized_confidence = _normalize_confidence(" ".join(sections["confidence"]), confidence_default)
+    normalized_unknowns = " ".join(sections["unknowns"]).strip() or unknowns
 
     return "\n".join(
         [
-            f"ANSWER: {answer}",
-            f"CONTINUITY: {continuity}",
-            f"CONFIDENCE: {confidence:.2f}",
-            f"UNKNOWNS: {unknowns}",
+            f"ANSWER: {normalized_answer}",
+            f"CONTINUITY: {normalized_continuity}",
+            f"CONFIDENCE: {normalized_confidence}",
+            f"UNKNOWNS: {normalized_unknowns}",
         ]
     )
 

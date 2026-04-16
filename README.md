@@ -308,6 +308,10 @@ Output artifacts:
 - `outputs/agi_experience_eval/<session_name>/evaluation_report.md`
 - `outputs/agi_experience_eval/<session_name>/gate_report.md`
 
+Strict runtime probe artifact (real-time, no fallback path):
+
+- `outputs/verification/strict_runtime_probe.json`
+
 Latest smoke result in this repo:
 
 - baseline_memory_hit_rate: `0.000`
