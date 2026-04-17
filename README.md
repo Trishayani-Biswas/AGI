@@ -762,6 +762,25 @@ Artifacts per cycle:
 - `outputs/independent_thinking_cycles/<run_tag>/summary.json`
 - `outputs/independent_thinking_cycles/<run_tag>/report.md`
 
+Latest stronger-local campaign (`qwen2.5:7b`, same evaluator/report format):
+
+- run tags: `qwen7b_cycle1` through `qwen7b_cycle5`
+- per-cycle correct rates: `0.667`, `0.667`, `0.667`, `1.000`, `1.000`
+- overall result: `12/15` correct (`0.800`), mean quality `0.880`
+- key improvement made during this campaign:
+  - evaluator binary exact-match parsing now handles punctuation/casing variants (for example `NO.`)
+  - LangGraph runtime now applies bounded Ollama invoke timeouts to avoid indefinite cycle stalls
+  - evolved response formatting now defaults to natural voice with optional `Context used:`, `Confidence:`, and `Open question:` lines instead of always forcing four rigid tags
+- consolidated report:
+  - `outputs/independent_thinking_cycles/qwen7b_five_cycle_improvement_report.md`
+
+Style-fixed visibility run (`qwen2.5:7b`, natural-answer-first output):
+
+- run tags: `qwen7b_stylefix_cycle1`, `qwen7b_stylefix_cycle2_live`, `qwen7b_stylefix_cycle3_live`, `qwen7b_stylefix_cycle4_live`, `qwen7b_stylefix_cycle5_live`
+- per-cycle correct rates: `1.000`, `1.000`, `0.667`, `1.000`, `1.000`
+- consolidated question-answer log:
+  - `outputs/independent_thinking_cycles/qwen7b_stylefix_visible_qa.md`
+
 Generated artifacts:
 
 - `outputs/persistent_agi_*/summary.json`

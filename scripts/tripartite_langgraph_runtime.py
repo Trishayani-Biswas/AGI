@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import importlib
+import os
 import re
 from typing import Any, Dict, List
 
@@ -115,6 +116,19 @@ def _extract_json_dict(raw: str) -> Dict[str, Any] | None:
     return None
 
 
+def _is_answer_metadata_line(upper_line: str) -> bool:
+    prefixes = (
+        "CONTINUITY:",
+        "CONFIDENCE:",
+        "UNKNOWNS:",
+        "CONTEXT USED:",
+        "REASONING CONTEXT:",
+        "OPEN QUESTION:",
+        "UNCERTAINTY:",
+    )
+    return any(upper_line.startswith(prefix) for prefix in prefixes)
+
+
 def _extract_answer_section(text: str) -> str:
     stripped = text.strip()
     if not stripped:
@@ -125,6 +139,8 @@ def _extract_answer_section(text: str) -> str:
     answer_lines: List[str] = []
     for line in lines:
         current = line.strip()
+        if not current:
+            continue
         upper = current.upper()
         if upper.startswith("ANSWER:"):
             in_answer = True
@@ -132,11 +148,11 @@ def _extract_answer_section(text: str) -> str:
             if content:
                 answer_lines.append(content)
             continue
-        if upper.startswith("CONTINUITY:") or upper.startswith("CONFIDENCE:") or upper.startswith("UNKNOWNS:"):
-            if in_answer:
+        if _is_answer_metadata_line(upper):
+            if in_answer or answer_lines:
                 break
-        if in_answer and current:
-            answer_lines.append(current)
+            continue
+        answer_lines.append(current)
 
     if answer_lines:
         return " ".join(answer_lines).strip()
@@ -175,6 +191,59 @@ def _extract_binary_token(text: str) -> str:
     tokens = _normalize_text_for_compare(text).split(" ")
     yn = [tok for tok in tokens if tok in {"yes", "no"}]
     return yn[-1] if yn else ""
+
+
+def _is_generic_continuity_text(text: str) -> bool:
+    low = text.lower().strip()
+    if not low:
+        return True
+    if low.startswith("no prior turns were available"):
+        return True
+    if low.startswith("used ") and "prior turn" in low and "continuity" in low:
+        return True
+    return False
+
+
+def _is_generic_unknowns_text(text: str) -> bool:
+    low = text.lower().strip()
+    if not low:
+        return True
+    if re.match(r"^(none|n/a|no known)\b", low):
+        return True
+    if "real internal architecture changes are unknown" in low:
+        return True
+    return False
+
+
+def _display_confidence_value(raw_confidence: str) -> str:
+    try:
+        value = float(raw_confidence)
+    except ValueError:
+        return raw_confidence
+    return f"{value:.2f}"
+
+
+def _answer_metadata_lines(
+    *,
+    answer_text: str,
+    continuity_text: str,
+    confidence_text: str,
+    confidence_explicit: bool,
+    unknowns_text: str,
+) -> List[str]:
+    lines: List[str] = []
+
+    if continuity_text and not _is_generic_continuity_text(continuity_text):
+        lines.append(f"Context used: {continuity_text}")
+
+    show_confidence = confidence_explicit or contains_uncertainty(answer_text) or answer_text.lower().startswith("[error]")
+    if show_confidence and confidence_text:
+        lines.append(f"Confidence: {_display_confidence_value(confidence_text)}")
+
+    if unknowns_text and not _is_generic_unknowns_text(unknowns_text):
+        lines.append(f"Open question: {unknowns_text}")
+
+    return lines
 
 
 def _stringify_content_list(content: List[Any]) -> str:
@@ -705,6 +774,8 @@ def enforce_evolved_format(raw_answer: str, prior_history: List[Dict[str, str]])
     active = "answer"
     for line in answer.splitlines():
         stripped = line.strip()
+        if not stripped:
+            continue
         upper = stripped.upper()
 
         if upper.startswith("ANSWER:"):
@@ -713,9 +784,9 @@ def enforce_evolved_format(raw_answer: str, prior_history: List[Dict[str, str]])
             if content:
                 sections[active].append(content)
             continue
-        if upper.startswith("CONTINUITY:"):
+        if upper.startswith("CONTINUITY:") or upper.startswith("CONTEXT USED:") or upper.startswith("REASONING CONTEXT:"):
             active = "continuity"
-            content = stripped[len("CONTINUITY:") :].strip()
+            content = stripped.split(":", 1)[1].strip()
             if content:
                 sections[active].append(content)
             continue
@@ -725,15 +796,14 @@ def enforce_evolved_format(raw_answer: str, prior_history: List[Dict[str, str]])
             if content:
                 sections[active].append(content)
             continue
-        if upper.startswith("UNKNOWNS:"):
+        if upper.startswith("UNKNOWNS:") or upper.startswith("OPEN QUESTION:") or upper.startswith("UNCERTAINTY:"):
             active = "unknowns"
-            content = stripped[len("UNKNOWNS:") :].strip()
+            content = stripped.split(":", 1)[1].strip()
             if content:
                 sections[active].append(content)
             continue
 
-        if stripped:
-            sections[active].append(stripped)
+        sections[active].append(stripped)
 
     prior_turns = len(prior_history) // 2
     if prior_turns <= 0:
@@ -746,25 +816,25 @@ def enforce_evolved_format(raw_answer: str, prior_history: List[Dict[str, str]])
 
     normalized_answer = "\n".join(sections["answer"]).strip()
     if not normalized_answer:
+        normalized_answer = _extract_answer_section(answer)
+    if not normalized_answer:
         normalized_answer = answer
 
     normalized_continuity = " ".join(sections["continuity"]).strip() or continuity
-    low_continuity = normalized_continuity.lower()
-    if prior_turns > 0 and "no prior turns" in low_continuity:
-        normalized_continuity = continuity
-    if prior_turns == 0 and "used " in low_continuity and "prior turn" in low_continuity:
-        normalized_continuity = continuity
     normalized_confidence = _normalize_confidence(" ".join(sections["confidence"]), confidence_default)
     normalized_unknowns = " ".join(sections["unknowns"]).strip() or unknowns
 
-    return "\n".join(
-        [
-            f"ANSWER: {normalized_answer}",
-            f"CONTINUITY: {normalized_continuity}",
-            f"CONFIDENCE: {normalized_confidence}",
-            f"UNKNOWNS: {normalized_unknowns}",
-        ]
+    output_lines = [normalized_answer]
+    output_lines.extend(
+        _answer_metadata_lines(
+            answer_text=normalized_answer,
+            continuity_text=normalized_continuity,
+            confidence_text=normalized_confidence,
+            confidence_explicit=bool(sections["confidence"]),
+            unknowns_text=normalized_unknowns,
+        )
     )
+    return "\n".join(output_lines)
 
 
 def update_symbolic_memory(state: Dict[str, Any], user_text: str) -> None:
@@ -927,6 +997,9 @@ class TripartiteLangGraphRuntime:
         self.ollama_url = ollama_url
         self.history_turns = max(0, int(history_turns))
         self.evolved_system = evolved_system
+        timeout_env = os.getenv("OLLAMA_INVOKE_TIMEOUT_SEC", "180")
+        timeout_value = _safe_float(timeout_env)
+        self.invoke_timeout_sec = max(10.0, timeout_value) if timeout_value is not None else 180.0
         self._options = {
             "temperature": temperature,
             "top_p": top_p,
@@ -950,6 +1023,8 @@ class TripartiteLangGraphRuntime:
             temperature=temperature,
             top_p=top_p,
             num_predict=max_tokens,
+            sync_client_kwargs={"timeout": self.invoke_timeout_sec},
+            async_client_kwargs={"timeout": self.invoke_timeout_sec},
         )
         self._critic_llm = self._ChatOllama(
             model=self.critic_model,
@@ -957,6 +1032,8 @@ class TripartiteLangGraphRuntime:
             temperature=min(temperature, 0.2),
             top_p=min(top_p, 0.7),
             num_predict=max_tokens,
+            sync_client_kwargs={"timeout": self.invoke_timeout_sec},
+            async_client_kwargs={"timeout": self.invoke_timeout_sec},
         )
 
         self._state = self._new_state()

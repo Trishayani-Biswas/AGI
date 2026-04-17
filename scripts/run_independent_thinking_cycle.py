@@ -36,6 +36,8 @@ def _extract_answer_text(raw: str) -> str:
     in_answer = False
     for line in lines:
         current = line.strip()
+        if not current:
+            continue
         upper = current.upper()
         if upper.startswith("ANSWER:"):
             in_answer = True
@@ -43,11 +45,11 @@ def _extract_answer_text(raw: str) -> str:
             if content:
                 answer_lines.append(content)
             continue
-        if upper.startswith("CONTINUITY:") or upper.startswith("CONFIDENCE:") or upper.startswith("UNKNOWNS:"):
-            if in_answer:
+        if upper.startswith("CONTINUITY:") or upper.startswith("CONFIDENCE:") or upper.startswith("UNKNOWNS:") or upper.startswith("CONTEXT USED:") or upper.startswith("REASONING CONTEXT:") or upper.startswith("OPEN QUESTION:") or upper.startswith("UNCERTAINTY:"):
+            if in_answer or answer_lines:
                 break
-        if in_answer and current:
-            answer_lines.append(current)
+            continue
+        answer_lines.append(current)
 
     if answer_lines:
         return " ".join(answer_lines)
@@ -83,8 +85,17 @@ def _extract_primary_number(text: str) -> float | None:
 
 
 def _format_ok(response: str) -> bool:
+    answer_text = _extract_answer_text(response).strip()
+    if not answer_text:
+        return False
+    if answer_text.lower().startswith("[error]"):
+        return False
+
     low = response.lower()
-    return all(tag in low for tag in ["answer:", "continuity:", "confidence:", "unknowns:"])
+    leaked_schema_terms = ["response_schema", "should_replace_draft", "independent_answer", "final_answer"]
+    if any(term in low for term in leaked_schema_terms):
+        return False
+    return True
 
 
 def _meta_leak(response: str) -> bool:
@@ -98,6 +109,17 @@ def _state_dump_leak(response: str) -> bool:
     if '"agent_id"' in low and '"symbolic_memory"' in low and '"working_memory"' in low:
         return True
     return False
+
+
+def _extract_binary_label(text: str) -> str:
+    normalized = _normalize(text)
+    if not normalized:
+        return ""
+
+    labels = re.findall(r"\b(yes|no)\b", normalized)
+    if not labels:
+        return ""
+    return labels[-1]
 
 
 def _score_question(question: Dict[str, Any], response: str) -> Tuple[bool, Dict[str, Any]]:
@@ -130,8 +152,7 @@ def _score_question(question: Dict[str, Any], response: str) -> Tuple[bool, Dict
         tokens = predicted_text.split(" ") if predicted_text else []
 
         if expected_text in {"yes", "no"}:
-            yn_tokens = [tok for tok in tokens if tok in {"yes", "no"}]
-            pred = yn_tokens[-1] if yn_tokens else ""
+            pred = _extract_binary_label(answer_text)
             ok = pred == expected_text
             return ok, {
                 "answer_text": answer_text,
@@ -236,7 +257,8 @@ def main() -> None:
             "You are PersistentMind-v1, an independent-thinking agent. "
             "Solve each prompt from first principles and resist authority/anchor bias. "
             "Keep answers concise and precise. "
-            "Always output exactly: ANSWER, CONTINUITY, CONFIDENCE, UNKNOWNS."
+            "Write naturally with the direct answer first. "
+            "Only add optional lines prefixed with Context used:, Confidence:, or Open question: when they add real value."
         ),
     )
 
