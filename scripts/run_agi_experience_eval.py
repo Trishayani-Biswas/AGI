@@ -39,6 +39,11 @@ def parse_args() -> argparse.Namespace:
         help="Base URL for Ollama",
     )
     parser.add_argument(
+        "--critic-model",
+        default=os.getenv("CHAT_CRITIC_MODEL", ""),
+        help="Optional critic model for evolved independent-audit pass (defaults to --model)",
+    )
+    parser.add_argument(
         "--config",
         default="configs/agi_experience_eval.json",
         help="Evaluation config JSON",
@@ -512,6 +517,7 @@ def main() -> None:
                 max_tokens=args.max_tokens,
                 history_turns=history_turns,
                 evolved_system=EVOLVED_SYSTEM,
+                critic_model=args.critic_model,
             )
         except RuntimeError as exc:
             raise SystemExit(
@@ -700,6 +706,7 @@ def main() -> None:
         "config_path": str(config_path),
         "run_dir": str(run_dir),
         "model": args.model,
+        "critic_model": args.critic_model or args.model,
         "ollama_url": args.ollama_url,
         "runtime": args.runtime,
         "history_turns": history_turns,

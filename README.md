@@ -29,6 +29,7 @@ Use this short checklist before closing any major implementation:
 ## External Research Notes
 
 - Medium source review from full user-provided text (with implementation mapping): `docs/research/medium-how-to-build-an-agi-review.md`
+- Independent-thinking experimental protocol and promotion criteria: `docs/research/independent-thinking-scientific-plan.md`
 
 ---
 
@@ -228,9 +229,18 @@ Use this mode to feel the difference directly: each prompt prints two answers.
 Default evolved runtime is now open-source framework orchestration:
 
 - LangGraph tripartite flow: CSG -> MMIE -> ECC
+- LangGraph independent-thinker flow: CSG draft -> AUDIT critique -> MMIE synthesis -> ECC formatting
 - LangChain Ollama adapter for local model execution
-- Strict real inference in LangGraph runtime: no deterministic answer injection and no HTTP fallback response substitution
+- Strict real inference in LangGraph runtime: no HTTP fallback response substitution; deterministic overrides are limited to explicit symbolic-memory operations
 - Legacy inline path is still available with `--runtime legacy`
+
+Independent-thinker upgrades in the LangGraph runtime:
+
+- dual-pass reasoning: draft answer plus critic audit pass before final output
+- anti-anchor behavior: critic can replace draft when disagreement is high-confidence
+- state-leak guard: if a draft echoes internal state JSON, runtime forces a repair draft
+- symbolic memory reflex: exact recall prompts (token/key/session summary) route to deterministic memory operations
+- audit telemetry in state: `independence_stats` tracks audits, revisions, disagreements, and anchor flags
 
 Implemented memory hierarchy in evolved mode:
 
@@ -248,6 +258,7 @@ Useful flags:
 - `--history-turns 12`
 - `--max-tokens 512`
 - `--enable-think`
+- `--critic-model qwen2.5:0.5b` (optional audit model; defaults to `--model`)
 - `--runtime legacy` (comparison/debug path, not strict real-inference mode)
 
 Session output files:
@@ -276,6 +287,16 @@ Run quick smoke benchmark (2 prompts, faster validation):
 
 ```bash
 .venv/bin/python scripts/run_agi_experience_eval.py --model deepseek-r1:1.5b --config configs/agi_experience_eval_smoke.json --session-name agi_eval_smoke
+```
+
+Optional independent-audit model override:
+
+```bash
+.venv/bin/python scripts/run_agi_experience_eval.py \
+  --model qwen2.5:0.5b \
+  --critic-model qwen2.5:0.5b \
+  --config configs/agi_experience_eval_smoke.json \
+  --session-name agi_eval_independent_smoke
 ```
 
 Notes:

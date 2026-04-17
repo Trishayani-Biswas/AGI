@@ -43,6 +43,11 @@ def parse_args() -> argparse.Namespace:
         help="Base URL for Ollama",
     )
     parser.add_argument(
+        "--critic-model",
+        default=os.getenv("CHAT_CRITIC_MODEL", ""),
+        help="Optional critic model for evolved independent-audit pass (defaults to --model)",
+    )
+    parser.add_argument(
         "--output-dir",
         default="outputs/live_chat_experience",
         help="Directory where comparison sessions are written",
@@ -517,6 +522,7 @@ def main() -> int:
                 max_tokens=args.max_tokens,
                 history_turns=history_turns,
                 evolved_system=args.evolved_system,
+                critic_model=args.critic_model,
             )
         except RuntimeError as exc:
             print(f"[error] unable to start langgraph runtime: {exc}")
@@ -547,6 +553,7 @@ def main() -> int:
     meta = {
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "model": args.model,
+        "critic_model": args.critic_model or args.model,
         "ollama_url": args.ollama_url,
         "history_turns": history_turns,
         "think": think_enabled,
