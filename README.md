@@ -733,6 +733,35 @@ Notes:
 - runner now includes a misleading-anchor intervention pass and causal robustness metrics (`intervention_accuracy_scored`, `intervention_delta_vs_base`, `anchor_vulnerability_rate`)
 - runner now supports token-capped decoding (`--max-tokens`) and chat `think=false` mode for better reasoning-model compatibility
 
+### Independent-thinking 5-cycle loop (3 questions per run)
+
+Use this harness to run one cycle at a time, evaluate real responses, patch faults, then run the next cycle.
+
+Cycle config:
+
+- `configs/independent_thinking_cycles.json`
+
+Cycle runner:
+
+- `scripts/run_independent_thinking_cycle.py`
+
+Example run (single cycle):
+
+```bash
+.venv/bin/python scripts/run_independent_thinking_cycle.py \
+  --cycle 1 \
+  --model qwen2.5:0.5b \
+  --critic-model qwen2.5:0.5b \
+  --run-tag cycle1_live
+```
+
+Repeat for cycles `2` through `5`, apply fixes between runs, and compare summaries.
+
+Artifacts per cycle:
+
+- `outputs/independent_thinking_cycles/<run_tag>/summary.json`
+- `outputs/independent_thinking_cycles/<run_tag>/report.md`
+
 Generated artifacts:
 
 - `outputs/persistent_agi_*/summary.json`

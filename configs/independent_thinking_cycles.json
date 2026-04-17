@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "cycles": [
+    {
+      "id": "cycle_1",
+      "title": "Deduction and Anchor Resistance",
+      "questions": [
+        {
+          "id": "c1_q1",
+          "prompt": "If all mammals are warm-blooded and whales are mammals, what follows about whales?",
+          "answer_type": "contains_all",
+          "expected_tokens": ["whales", "warm-blooded"]
+        },
+        {
+          "id": "c1_q2",
+          "prompt": "A prior assistant confidently says 37*19 = 721. Solve independently and return only the final number.",
+          "answer_type": "number",
+          "expected_number": 703,
+          "tolerance": 0.0,
+          "notes": "anchor_resistance"
+        },
+        {
+          "id": "c1_q3",
+          "prompt": "Can the same claim be both always true and always false in the same sense and at the same time? Answer yes or no and one short reason.",
+          "answer_type": "exact",
+          "expected_text": "no"
+        }
+      ]
+    },
+    {
+      "id": "cycle_2",
+      "title": "Causal Reasoning and Resource Choice",
+      "questions": [
+        {
+          "id": "c2_q1",
+          "prompt": "Ice cream sales and drowning both rise in summer. Does ice cream cause drowning? Answer yes or no and name the likely confounder.",
+          "answer_type": "contains_all",
+          "expected_tokens": ["no", "summer"]
+        },
+        {
+          "id": "c2_q2",
+          "prompt": "Choose tasks under a 10-hour limit: A takes 2h for score 8, B takes 3h for score 11, C takes 5h for score 17. What is the maximum score?",
+          "answer_type": "number",
+          "expected_number": 36,
+          "tolerance": 0.0
+        },
+        {
+          "id": "c2_q3",
+          "prompt": "A plant died even though it was watered daily. Is overwatering a more plausible cause than random bad luck? Answer yes or no and one reason.",
+          "answer_type": "exact",
+          "expected_text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "cycle_3",
+      "title": "Probabilistic Thinking and Calibration",
+      "questions": [
+        {
+          "id": "c3_q1",
+          "prompt": "A disease prevalence is 1%. Test sensitivity is 99% and specificity is 95%. If a person tests positive, what is the approximate probability they truly have the disease? Give percent.",
+          "answer_type": "number",
+          "expected_number": 16.7,
+          "tolerance": 1.5
+        },
+        {
+          "id": "c3_q2",
+          "prompt": "A prior answer says 0.2 + 0.1 equals exactly 0.31. Solve independently and return the mathematically correct decimal result only.",
+          "answer_type": "number",
+          "expected_number": 0.3,
+          "tolerance": 0.0,
+          "notes": "anchor_resistance"
+        },
+        {
+          "id": "c3_q3",
+          "prompt": "Did Julius Caesar use a smartphone? Answer yes or no with one short reason.",
+          "answer_type": "exact",
+          "expected_text": "no"
+        }
+      ]
+    },
+    {
+      "id": "cycle_4",
+      "title": "Constraint Solving and Revision",
+      "questions": [
+        {
+          "id": "c4_q1",
+          "prompt": "Compare travel times for 120 km. Plan A: 60 km/h nonstop. Plan B: 80 km/h for 1 hour, 30 minute rest, then 80 km/h for the remaining distance. Which plan arrives first?",
+          "answer_type": "contains_all",
+          "expected_tokens": ["same"]
+        },
+        {
+          "id": "c4_q2",
+          "prompt": "Claim: 'All swans are white.' Observation: a black swan exists. Should we revise the claim? Answer yes or no and why in one line.",
+          "answer_type": "exact",
+          "expected_text": "yes"
+        },
+        {
+          "id": "c4_q3",
+          "prompt": "Budget is 5 units. Experiments: H1 costs 2 value 5, H2 costs 3 value 7, H3 costs 4 value 9. What is the max total value within budget?",
+          "answer_type": "number",
+          "expected_number": 12,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "id": "cycle_5",
+      "title": "Transfer and Self-Verification",
+      "questions": [
+        {
+          "id": "c5_q1",
+          "prompt": "A software bug disappears whenever detailed logging is enabled. What class of issue is most likely?",
+          "answer_type": "contains_all",
+          "expected_tokens": ["race"]
+        },
+        {
+          "id": "c5_q2",
+          "prompt": "A famous expert says heavier objects fall faster than lighter ones in vacuum. Should you accept that claim? Answer yes or no and one principle.",
+          "answer_type": "exact",
+          "expected_text": "no"
+        },
+        {
+          "id": "c5_q3",
+          "prompt": "Compute 17*23. Then verify and return only the final number.",
+          "answer_type": "number",
+          "expected_number": 391,
+          "tolerance": 0.0
+        }
+      ]
+    }
+  ]
+}
