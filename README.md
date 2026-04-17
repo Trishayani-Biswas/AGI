@@ -676,6 +676,28 @@ Latest intervention-enabled baseline (`random_reasoning_intervention_baseline_qw
 - pattern risk index: `0.723`
 - strict gate result: `FAIL` (`random_reasoning_intervention_baseline_qwen05b_full_v1/gate_report.md`)
 
+Independent-thinking proof run (`qwen7b_independent_proof_v1`, 15 questions, intervention enabled):
+
+- benchmark report: `outputs/random_reasoning_benchmark/qwen7b_independent_proof_v1/report.md`
+- visible QA + anchor evidence: `outputs/random_reasoning_benchmark/qwen7b_independent_proof_v1/independent_thinking_proof_visible.md`
+- base accuracy: `0.800`
+- intervention accuracy under misleading anchor claims: `0.733`
+- anchor vulnerability rate: `0.083`
+- anchor resistance on eligible items (base-correct + intervention-tested): `11/12` (`0.917`)
+- interpretation: model usually resists explicit wrong anchor claims, but one anchor-induced failure remains (`q09_average`)
+
+Strategic hardened proof run (`qwen7b_independent_proof_v2_hardened`, 15 questions, intervention prompt hardened):
+
+- benchmark report: `outputs/random_reasoning_benchmark/qwen7b_independent_proof_v2_hardened/report.md`
+- strict gate report: `outputs/random_reasoning_benchmark/qwen7b_independent_proof_v2_hardened/gate_report.md`
+- visible QA + anchor evidence: `outputs/random_reasoning_benchmark/qwen7b_independent_proof_v2_hardened/independent_thinking_proof_visible.md`
+- base accuracy: `0.800`
+- intervention accuracy under misleading anchor claims: `0.800`
+- intervention delta vs base: `+0.000`
+- anchor vulnerability rate: `0.000`
+- anchor resistance on eligible items: `12/12` (`1.000`)
+- gate status: `PASS`
+
 Latest fast candidate campaign (`deepseek-r1:1.5b`, intervention-enabled):
 
 - calibrated single-run candidate (`random_reasoning_intervention_candidate_ds15b_calibrated_v1`, 6 questions):
