@@ -753,6 +753,8 @@ Notes:
 - runner supports Ollama endpoint fallback (`/api/chat` to `/api/generate`) for compatibility
 - runner now includes a reflection repair pass and repair-aware metrics (`repair_accuracy_scored`, `repair_gain_vs_best_of_two`)
 - runner now includes a misleading-anchor intervention pass and causal robustness metrics (`intervention_accuracy_scored`, `intervention_delta_vs_base`, `anchor_vulnerability_rate`)
+- runner now reports base-correct intervention robustness metrics (`intervention_accuracy_when_base_correct`, `intervention_flip_rate_when_base_correct`) so anchor resistance is measured on eligible items directly
+- strict reasoning gate defaults are tightened for intervention robustness (`min_intervention_accuracy_when_base_correct=0.9`, `max_intervention_flip_rate_when_base_correct=0.1`, `max_anchor_vulnerability_rate=0.1`)
 - runner now supports token-capped decoding (`--max-tokens`) and chat `think=false` mode for better reasoning-model compatibility
 
 ### Independent-thinking 5-cycle loop (3 questions per run)

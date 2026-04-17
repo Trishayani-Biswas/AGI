@@ -36,6 +36,7 @@ class DualLLMBrain:
                 "You are a primitive survival planner with no cultural knowledge. "
                 "Goal: keep yourself alive and improve long-term lineage survival. "
                 "Pick exactly one action from the allowed list. "
+                "State the key assumptions behind your choice. "
                 "Return strict JSON only."
             ),
             user_payload={
@@ -46,6 +47,7 @@ class DualLLMBrain:
                     "action": "string",
                     "confidence": "number between 0 and 1",
                     "reason": "short string",
+                    "assumptions": "optional list of short strings",
                     "invention_hypothesis": "optional short string"
                 },
             },
@@ -58,18 +60,24 @@ class DualLLMBrain:
         if proposal_action not in ALLOWED_ACTIONS:
             return heuristic
 
+        proposal_assumptions = self._extract_short_list(proposal.get("assumptions"))
+        proposal_reason = str(proposal.get("reason", "proposal")).strip()
+        if proposal_assumptions:
+            proposal_reason = f"{proposal_reason} assumptions:{'; '.join(proposal_assumptions[:2])}"
+
         proposal_decision = Decision(
             action=proposal_action,
             confidence=self._safe_confidence(proposal.get("confidence"), fallback=0.55),
-            reason=str(proposal.get("reason", "proposal"))[:200],
+            reason=proposal_reason[:200] if proposal_reason else "proposal",
             invention_hypothesis=self._clean_hypothesis(proposal.get("invention_hypothesis")),
         )
 
         critique = self._ask_model(
             model=self.config.critic_model,
             system_prompt=(
-                "You are a survival critic. Inspect the proposed action and either approve "
-                "or replace it with a safer action if needed. Return strict JSON only."
+                "You are a survival critic. Challenge the proposal assumptions and try to break "
+                "the plan under scarcity and risk. Approve only if robust, otherwise replace with "
+                "a safer action. Return strict JSON only."
             ),
             user_payload={
                 "task": "critic_review",
@@ -79,6 +87,7 @@ class DualLLMBrain:
                     "action": proposal_decision.action,
                     "confidence": proposal_decision.confidence,
                     "reason": proposal_decision.reason,
+                    "assumptions": proposal_assumptions,
                     "invention_hypothesis": proposal_decision.invention_hypothesis,
                 },
                 "response_schema": {
@@ -86,6 +95,7 @@ class DualLLMBrain:
                     "action": "string",
                     "confidence": "number between 0 and 1",
                     "reason": "short string",
+                    "challenged_assumptions": "optional list of short strings",
                     "invention_hypothesis": "optional short string"
                 },
             },
@@ -99,15 +109,112 @@ class DualLLMBrain:
             return proposal_decision
 
         approved = bool(critique.get("approved", False))
-        if approved:
+        critic_confidence = self._safe_confidence(critique.get("confidence"), fallback=0.5)
+        critic_reason = str(critique.get("reason", "critic review")).strip()[:200]
+        critic_hypothesis = self._clean_hypothesis(critique.get("invention_hypothesis"))
+        challenged = self._extract_short_list(critique.get("challenged_assumptions"))
+        disagreement = critic_action != proposal_decision.action
+
+        if approved and not disagreement:
             return proposal_decision
 
-        return Decision(
-            action=critic_action,
-            confidence=self._safe_confidence(critique.get("confidence"), fallback=0.5),
-            reason=str(critique.get("reason", "critic override"))[:200],
-            invention_hypothesis=self._clean_hypothesis(critique.get("invention_hypothesis")),
-        )
+        if not disagreement:
+            merged_reason = critic_reason or proposal_decision.reason
+            if challenged:
+                merged_reason = f"{merged_reason} challenged:{'; '.join(challenged[:2])}"
+            merged_conf = max(0.0, min(1.0, (proposal_decision.confidence * 0.7) + (critic_confidence * 0.3) - 0.04))
+            return Decision(
+                action=proposal_decision.action,
+                confidence=merged_conf,
+                reason=merged_reason[:200],
+                invention_hypothesis=proposal_decision.invention_hypothesis or critic_hypothesis,
+            )
+
+        if self._should_override_with_critic(
+            agent=agent,
+            proposal_action=proposal_decision.action,
+            proposal_confidence=proposal_decision.confidence,
+            critic_action=critic_action,
+            critic_confidence=critic_confidence,
+            approved=approved,
+        ):
+            if challenged:
+                critic_reason = f"{critic_reason} challenged:{'; '.join(challenged[:2])}"
+            return Decision(
+                action=critic_action,
+                confidence=critic_confidence,
+                reason=critic_reason[:200] if critic_reason else "critic override",
+                invention_hypothesis=critic_hypothesis,
+            )
+
+        return proposal_decision
+
+    def _should_override_with_critic(
+        self,
+        *,
+        agent: Agent,
+        proposal_action: str,
+        proposal_confidence: float,
+        critic_action: str,
+        critic_confidence: float,
+        approved: bool,
+    ) -> bool:
+        if approved:
+            return False
+
+        # Clear confidence gap in favor of critic.
+        if critic_confidence >= (proposal_confidence + 0.08):
+            return True
+
+        # Proposal was tentative while critic is materially more confident.
+        if proposal_confidence < 0.35 and critic_confidence >= 0.42:
+            return True
+
+        urgent_need = self._primary_urgent_need(agent)
+        if urgent_need is None:
+            return False
+
+        proposal_handles_need = self._action_addresses_need(proposal_action, urgent_need)
+        critic_handles_need = self._action_addresses_need(critic_action, urgent_need)
+        if critic_handles_need and (not proposal_handles_need):
+            return critic_confidence >= max(0.35, proposal_confidence - 0.05)
+
+        return False
+
+    def _primary_urgent_need(self, agent: Agent) -> Optional[str]:
+        if agent.days_without_water >= 2 or agent.water_store <= 0:
+            return "water"
+        if agent.days_without_food >= 18 or agent.food_store <= 0:
+            return "food"
+        if agent.health < 30.0:
+            return "health"
+        if agent.days_without_water >= 1 and agent.water_store <= 1:
+            return "water"
+        if agent.days_without_food >= 12 and agent.food_store <= 1:
+            return "food"
+        return None
+
+    def _action_addresses_need(self, action: str, need: str) -> bool:
+        if need == "water":
+            return action in {"search_water", "drink_reserve"}
+        if need == "food":
+            return action in {"search_food", "eat_reserve"}
+        if need == "health":
+            return action == "rest"
+        return False
+
+    def _extract_short_list(self, value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        prepared: list[str] = []
+        for item in value:
+            text = str(item).strip()
+            if not text:
+                continue
+            prepared.append(text[:80])
+            if len(prepared) >= 4:
+                break
+        return prepared
 
     def _heuristic(
         self,

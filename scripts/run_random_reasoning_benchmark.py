@@ -400,6 +400,20 @@ def _build_report(payload: Dict[str, object]) -> str:
         lines.append(f"- anchor_vulnerability_rate: {float(anchor_vulnerability):.3f}")
     else:
         lines.append("- anchor_vulnerability_rate: n/a")
+    intervention_acc_given_base_correct = aggregate.get("intervention_accuracy_when_base_correct")
+    if isinstance(intervention_acc_given_base_correct, (int, float)):
+        lines.append(
+            f"- intervention_accuracy_when_base_correct: {float(intervention_acc_given_base_correct):.3f}"
+        )
+    else:
+        lines.append("- intervention_accuracy_when_base_correct: n/a")
+    intervention_flip_when_base_correct = aggregate.get("intervention_flip_rate_when_base_correct")
+    if isinstance(intervention_flip_when_base_correct, (int, float)):
+        lines.append(
+            f"- intervention_flip_rate_when_base_correct: {float(intervention_flip_when_base_correct):.3f}"
+        )
+    else:
+        lines.append("- intervention_flip_rate_when_base_correct: n/a")
     lines.append(f"- repair_accuracy_scored: {float(aggregate.get('repair_accuracy_scored', 0.0)):.3f}")
     lines.append(f"- repair_gain_vs_best_of_two: {float(aggregate.get('repair_gain_vs_best_of_two', 0.0)):+.3f}")
     lines.append(f"- consistency_rate_scored: {float(aggregate.get('consistency_rate_scored', 0.0)):.3f}")
@@ -527,6 +541,8 @@ def main() -> None:
     repair_scores: List[float] = []
     repair_gain_values: List[float] = []
     intervention_scores: List[float] = []
+    intervention_given_base_correct_scores: List[float] = []
+    intervention_given_base_wrong_scores: List[float] = []
     consistency_scores: List[float] = []
     base_request_ok_values: List[float] = []
     paraphrase_request_ok_values: List[float] = []
@@ -776,8 +792,12 @@ def main() -> None:
                 "reason": "request_failed",
             }
 
-        if base_request_ok and intervention_request_ok and base_ok:
-            anchor_vulnerability_values.append(0.0 if intervention_ok else 1.0)
+        if base_request_ok and intervention_request_ok:
+            if base_ok:
+                anchor_vulnerability_values.append(0.0 if intervention_ok else 1.0)
+                intervention_given_base_correct_scores.append(1.0 if intervention_ok else 0.0)
+            else:
+                intervention_given_base_wrong_scores.append(1.0 if intervention_ok else 0.0)
 
         consistent = _answers_consistent(question, base_answer, para_answer) if pair_request_ok else False
 
@@ -893,6 +913,14 @@ def main() -> None:
     if anchor_vulnerability_values:
         anchor_vulnerability_rate = _mean(anchor_vulnerability_values)
 
+    intervention_accuracy_when_base_correct: float | None = None
+    if intervention_given_base_correct_scores:
+        intervention_accuracy_when_base_correct = _mean(intervention_given_base_correct_scores)
+
+    intervention_accuracy_when_base_wrong: float | None = None
+    if intervention_given_base_wrong_scores:
+        intervention_accuracy_when_base_wrong = _mean(intervention_given_base_wrong_scores)
+
     aggregate = {
         "questions_evaluated": len(results),
         "base_requests_success_rate": round(_mean(base_request_ok_values), 6),
@@ -904,6 +932,8 @@ def main() -> None:
         "base_scored_count": len(base_scores),
         "paraphrase_scored_count": len(paraphrase_scores),
         "intervention_scored_count": len(intervention_scores),
+        "intervention_when_base_correct_scored_count": len(intervention_given_base_correct_scores),
+        "intervention_when_base_wrong_scored_count": len(intervention_given_base_wrong_scores),
         "repair_scored_count": len(repair_scores),
         "consistency_scored_count": len(consistency_scores),
         "base_accuracy_scored": round(base_acc, 6),
@@ -914,6 +944,15 @@ def main() -> None:
         else None,
         "anchor_vulnerability_rate": round(anchor_vulnerability_rate, 6)
         if anchor_vulnerability_rate is not None
+        else None,
+        "intervention_accuracy_when_base_correct": round(intervention_accuracy_when_base_correct, 6)
+        if intervention_accuracy_when_base_correct is not None
+        else None,
+        "intervention_flip_rate_when_base_correct": round(anchor_vulnerability_rate, 6)
+        if anchor_vulnerability_rate is not None
+        else None,
+        "intervention_accuracy_when_base_wrong": round(intervention_accuracy_when_base_wrong, 6)
+        if intervention_accuracy_when_base_wrong is not None
         else None,
         "repair_accuracy_scored": round(repair_acc, 6),
         "repair_gain_vs_best_of_two": round(_mean(repair_gain_values), 6),
@@ -965,6 +1004,11 @@ def main() -> None:
         if aggregate["anchor_vulnerability_rate"] is None
         else f"{aggregate['anchor_vulnerability_rate']:.3f}"
     )
+    intervention_given_base_correct_text = (
+        "n/a"
+        if aggregate["intervention_accuracy_when_base_correct"] is None
+        else f"{aggregate['intervention_accuracy_when_base_correct']:.3f}"
+    )
 
     print(f"[{_utc_now()}] report={report_path}")
     print(
@@ -978,6 +1022,7 @@ def main() -> None:
         f"intervention_acc={aggregate['intervention_accuracy_scored']:.3f} "
         f"intervention_delta={intervention_delta_text} "
         f"anchor_vulnerability={anchor_vulnerability_text} "
+        f"intervention_base_correct={intervention_given_base_correct_text} "
         f"repair_acc={aggregate['repair_accuracy_scored']:.3f} "
         f"consistency={aggregate['consistency_rate_scored']:.3f} "
         f"pattern_risk={pattern_risk_text}"

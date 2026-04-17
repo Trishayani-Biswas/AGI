@@ -128,12 +128,22 @@ def main() -> None:
     min_base_acc = _safe_float(thresholds.get("min_base_accuracy_scored")) or 0.0
     min_para_acc = _safe_float(thresholds.get("min_paraphrase_accuracy_scored")) or 0.0
     min_intervention_acc = _safe_float(thresholds.get("min_intervention_accuracy_scored")) or 0.0
+    min_intervention_acc_when_base_correct = _safe_float(
+        thresholds.get("min_intervention_accuracy_when_base_correct")
+    )
+    if min_intervention_acc_when_base_correct is None:
+        min_intervention_acc_when_base_correct = 0.0
     min_intervention_delta_vs_base = _safe_float(thresholds.get("min_intervention_delta_vs_base"))
     if min_intervention_delta_vs_base is None:
         min_intervention_delta_vs_base = -1.0
     max_anchor_vulnerability_rate = _safe_float(thresholds.get("max_anchor_vulnerability_rate"))
     if max_anchor_vulnerability_rate is None:
         max_anchor_vulnerability_rate = 1.0
+    max_intervention_flip_rate_when_base_correct = _safe_float(
+        thresholds.get("max_intervention_flip_rate_when_base_correct")
+    )
+    if max_intervention_flip_rate_when_base_correct is None:
+        max_intervention_flip_rate_when_base_correct = 1.0
     min_repair_acc = _safe_float(thresholds.get("min_repair_accuracy_scored")) or 0.0
     min_repair_gain = _safe_float(thresholds.get("min_repair_gain_vs_best_of_two")) or 0.0
     min_consistency = _safe_float(thresholds.get("min_consistency_rate_scored")) or 0.0
@@ -158,8 +168,16 @@ def main() -> None:
     candidate_base_acc = _agg_metric(candidate_summary, "base_accuracy_scored")
     candidate_para_acc = _agg_metric(candidate_summary, "paraphrase_accuracy_scored")
     candidate_intervention_acc = _agg_metric(candidate_summary, "intervention_accuracy_scored")
+    candidate_intervention_acc_when_base_correct = _agg_metric(
+        candidate_summary, "intervention_accuracy_when_base_correct"
+    )
     candidate_intervention_delta_vs_base = _agg_metric(candidate_summary, "intervention_delta_vs_base")
     candidate_anchor_vulnerability = _agg_metric(candidate_summary, "anchor_vulnerability_rate")
+    candidate_intervention_flip_when_base_correct = _agg_metric(
+        candidate_summary, "intervention_flip_rate_when_base_correct"
+    )
+    if candidate_intervention_flip_when_base_correct is None:
+        candidate_intervention_flip_when_base_correct = candidate_anchor_vulnerability
     candidate_repair_acc = _agg_metric(candidate_summary, "repair_accuracy_scored")
     candidate_repair_gain = _agg_metric(candidate_summary, "repair_gain_vs_best_of_two")
     candidate_consistency = _agg_metric(candidate_summary, "consistency_rate_scored")
@@ -213,6 +231,21 @@ def main() -> None:
         )
     )
 
+    intervention_acc_when_base_correct_pass = (
+        candidate_intervention_acc_when_base_correct is not None
+        and candidate_intervention_acc_when_base_correct >= min_intervention_acc_when_base_correct
+    )
+    checks.append(
+        (
+            "Intervention accuracy on base-correct items meets threshold",
+            intervention_acc_when_base_correct_pass,
+            (
+                f"candidate={_fmt(candidate_intervention_acc_when_base_correct)} "
+                f"required>={_fmt(min_intervention_acc_when_base_correct)}"
+            ),
+        )
+    )
+
     intervention_delta_vs_base_pass = (
         candidate_intervention_delta_vs_base is not None
         and candidate_intervention_delta_vs_base >= min_intervention_delta_vs_base
@@ -239,6 +272,21 @@ def main() -> None:
             (
                 f"candidate={_fmt(candidate_anchor_vulnerability)} "
                 f"allowed<={_fmt(max_anchor_vulnerability_rate)}"
+            ),
+        )
+    )
+
+    intervention_flip_when_base_correct_pass = (
+        candidate_intervention_flip_when_base_correct is not None
+        and candidate_intervention_flip_when_base_correct <= max_intervention_flip_rate_when_base_correct
+    )
+    checks.append(
+        (
+            "Intervention flip rate on base-correct items is below max",
+            intervention_flip_when_base_correct_pass,
+            (
+                f"candidate={_fmt(candidate_intervention_flip_when_base_correct)} "
+                f"allowed<={_fmt(max_intervention_flip_rate_when_base_correct)}"
             ),
         )
     )
@@ -395,8 +443,14 @@ def main() -> None:
     lines.append(f"- min_base_accuracy_scored: {min_base_acc}")
     lines.append(f"- min_paraphrase_accuracy_scored: {min_para_acc}")
     lines.append(f"- min_intervention_accuracy_scored: {min_intervention_acc}")
+    lines.append(
+        f"- min_intervention_accuracy_when_base_correct: {min_intervention_acc_when_base_correct}"
+    )
     lines.append(f"- min_intervention_delta_vs_base: {min_intervention_delta_vs_base}")
     lines.append(f"- max_anchor_vulnerability_rate: {max_anchor_vulnerability_rate}")
+    lines.append(
+        f"- max_intervention_flip_rate_when_base_correct: {max_intervention_flip_rate_when_base_correct}"
+    )
     lines.append(f"- min_repair_accuracy_scored: {min_repair_acc}")
     lines.append(f"- min_repair_gain_vs_best_of_two: {min_repair_gain}")
     lines.append(f"- min_consistency_rate_scored: {min_consistency}")
