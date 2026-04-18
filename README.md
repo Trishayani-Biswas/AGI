@@ -728,6 +728,31 @@ Latest fast candidate campaign (`deepseek-r1:1.5b`, intervention-enabled):
   - promotion verdict remains `reject`
 - automated promotion pipeline (`random_reasoning_auto_candidate_ds15b_fast_v2/promotion_decision.json`) currently returns `promoted=false`
 
+Latest strict full comparison (15 questions, same benchmark version for fair delta):
+
+- candidate run (`qwen7b_strict_candidate_full_v4`):
+  - report: `outputs/random_reasoning_benchmark/qwen7b_strict_candidate_full_v4/report.md`
+  - base/paraphrase/intervention/repair accuracy: `0.800 / 0.800 / 0.733 / 0.800`
+  - intervention delta vs base: `-0.067`
+  - anchor vulnerability: `0.083`
+  - intervention accuracy on base-correct items: `0.917` (`11/12` anchor-resilient)
+- baseline run (`qwen05b_strict_baseline_full_v2`):
+  - report: `outputs/random_reasoning_benchmark/qwen05b_strict_baseline_full_v2/report.md`
+  - base/paraphrase/intervention/repair accuracy: `0.333 / 0.200 / 0.333 / 0.333`
+  - anchor vulnerability: `0.400`
+- strict baseline-delta gate report:
+  - `outputs/random_reasoning_benchmark/qwen7b_strict_candidate_full_v4/gate_vs_qwen05b_strict_baseline_full_v2.md`
+  - overall: `FAIL`
+  - primary failure: `intervention_delta_vs_base` must be non-negative under current strict policy
+
+Category-conditioned intervention gate extension (added after full run):
+
+- gate now supports per-category thresholds in `configs/random_reasoning_gate.json` under `category_thresholds`
+- current enforced category check: `statistics`
+  - `min_support=1`
+  - `min_intervention_accuracy_when_base_correct=1.0`
+  - `max_intervention_flip_rate_when_base_correct=0.0`
+
 Short consistency-focused decoding sweep around calibrated profile (thresholds unchanged):
 
 - sweep summary: `outputs/random_reasoning_benchmark/decoding_sweep_consistency_short_v1.md`

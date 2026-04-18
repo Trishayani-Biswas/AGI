@@ -19,5 +19,12 @@
     "min_intervention_accuracy_delta_vs_baseline": 0.0,
     "min_consistency_delta_vs_baseline": 0.0,
     "max_pattern_risk_delta_vs_baseline": 0.0
+  },
+  "category_thresholds": {
+    "statistics": {
+      "min_support": 1,
+      "min_intervention_accuracy_when_base_correct": 1.0,
+      "max_intervention_flip_rate_when_base_correct": 0.0
+    }
   }
 }

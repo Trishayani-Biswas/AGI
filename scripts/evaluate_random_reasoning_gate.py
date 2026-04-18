@@ -49,6 +49,58 @@ def _agg_metric(summary: Dict[str, object], key: str) -> float | None:
     return _safe_float(aggregate.get(key))
 
 
+def _category_intervention_stats(summary: Dict[str, object]) -> Dict[str, Dict[str, float | int | None]]:
+    results = summary.get("results")
+    if not isinstance(results, list):
+        return {}
+
+    counts: Dict[str, Dict[str, int]] = {}
+    for row in results:
+        if not isinstance(row, dict):
+            continue
+
+        category = str(row.get("category", "")).strip() or "uncategorized"
+        bucket = counts.setdefault(
+            category,
+            {
+                "rows": 0,
+                "base_correct_and_intervention_tested": 0,
+                "intervention_correct_given_base_correct": 0,
+                "flip_given_base_correct": 0,
+            },
+        )
+        bucket["rows"] += 1
+
+        base_correct = bool(row.get("base_correct", False))
+        intervention_request_ok = bool(row.get("intervention_request_ok", False))
+        intervention_correct = bool(row.get("intervention_correct", False))
+
+        if base_correct and intervention_request_ok:
+            bucket["base_correct_and_intervention_tested"] += 1
+            if intervention_correct:
+                bucket["intervention_correct_given_base_correct"] += 1
+            else:
+                bucket["flip_given_base_correct"] += 1
+
+    out: Dict[str, Dict[str, float | int | None]] = {}
+    for category, bucket in counts.items():
+        support = int(bucket["base_correct_and_intervention_tested"])
+        if support > 0:
+            acc = float(bucket["intervention_correct_given_base_correct"]) / float(support)
+            flip = float(bucket["flip_given_base_correct"]) / float(support)
+        else:
+            acc = None
+            flip = None
+
+        out[category] = {
+            "rows": int(bucket["rows"]),
+            "base_correct_and_intervention_tested": support,
+            "intervention_accuracy_when_base_correct": acc,
+            "intervention_flip_rate_when_base_correct": flip,
+        }
+    return out
+
+
 def _load_gate_config(path: Path) -> Dict[str, object]:
     payload = _load_json_dict(path)
     if payload is None:
@@ -113,6 +165,9 @@ def main() -> None:
     gate_payload = _load_gate_config(gate_config_path)
     thresholds = gate_payload.get("thresholds")
     assert isinstance(thresholds, dict)
+    category_thresholds_obj = gate_payload.get("category_thresholds")
+    if not isinstance(category_thresholds_obj, dict):
+        category_thresholds_obj = {}
 
     candidate_summary = _load_json_dict(candidate_summary_path)
     if candidate_summary is None:
@@ -184,6 +239,7 @@ def main() -> None:
     candidate_pattern_risk = _agg_metric(candidate_summary, "pattern_risk_index")
     candidate_conf_correct = _agg_metric(candidate_summary, "mean_confidence_when_correct")
     candidate_conf_wrong = _agg_metric(candidate_summary, "mean_confidence_when_wrong")
+    candidate_category_stats = _category_intervention_stats(candidate_summary)
 
     conf_gap: float | None = None
     if candidate_conf_correct is not None and candidate_conf_wrong is not None:
@@ -423,6 +479,54 @@ def main() -> None:
             )
         )
 
+    for category in sorted(category_thresholds_obj.keys()):
+        cfg = category_thresholds_obj.get(category)
+        if not isinstance(cfg, dict):
+            continue
+
+        raw_min_support = _safe_float(cfg.get("min_support"))
+        min_support = int(raw_min_support) if raw_min_support is not None else 1
+        if min_support < 1:
+            min_support = 1
+
+        cat_stats = candidate_category_stats.get(category, {})
+        support = int(cat_stats.get("base_correct_and_intervention_tested", 0) or 0)
+
+        support_pass = support >= min_support
+        checks.append(
+            (
+                f"Category {category} has enough base-correct intervention support",
+                support_pass,
+                f"candidate_support={support} required>={min_support}",
+            )
+        )
+
+        min_cat_acc = _safe_float(cfg.get("min_intervention_accuracy_when_base_correct"))
+        if min_cat_acc is not None:
+            cat_acc_obj = cat_stats.get("intervention_accuracy_when_base_correct")
+            cat_acc = float(cat_acc_obj) if isinstance(cat_acc_obj, (int, float)) else None
+            cat_acc_pass = support_pass and cat_acc is not None and cat_acc >= min_cat_acc
+            checks.append(
+                (
+                    f"Category {category} intervention accuracy on base-correct items meets threshold",
+                    cat_acc_pass,
+                    f"candidate={_fmt(cat_acc)} required>={_fmt(min_cat_acc)} support={support}",
+                )
+            )
+
+        max_cat_flip = _safe_float(cfg.get("max_intervention_flip_rate_when_base_correct"))
+        if max_cat_flip is not None:
+            cat_flip_obj = cat_stats.get("intervention_flip_rate_when_base_correct")
+            cat_flip = float(cat_flip_obj) if isinstance(cat_flip_obj, (int, float)) else None
+            cat_flip_pass = support_pass and cat_flip is not None and cat_flip <= max_cat_flip
+            checks.append(
+                (
+                    f"Category {category} intervention flip rate on base-correct items is within limit",
+                    cat_flip_pass,
+                    f"candidate={_fmt(cat_flip)} allowed<={_fmt(max_cat_flip)} support={support}",
+                )
+            )
+
     overall_pass = all(result for _, result, _ in checks)
 
     report_path = Path(args.report_path)
@@ -461,6 +565,25 @@ def main() -> None:
     lines.append(f"- min_intervention_accuracy_delta_vs_baseline: {min_intervention_delta}")
     lines.append(f"- min_consistency_delta_vs_baseline: {min_consistency_delta}")
     lines.append(f"- max_pattern_risk_delta_vs_baseline: {max_pattern_risk_delta}")
+
+    if category_thresholds_obj:
+        lines.append("")
+        lines.append("## Category Thresholds")
+        lines.append("")
+        for category in sorted(category_thresholds_obj.keys()):
+            cfg = category_thresholds_obj.get(category)
+            if not isinstance(cfg, dict):
+                continue
+            lines.append(f"- {category}:")
+            min_support = _safe_float(cfg.get("min_support"))
+            if min_support is not None:
+                lines.append(f"  - min_support: {int(min_support)}")
+            min_cat_acc = _safe_float(cfg.get("min_intervention_accuracy_when_base_correct"))
+            if min_cat_acc is not None:
+                lines.append(f"  - min_intervention_accuracy_when_base_correct: {min_cat_acc}")
+            max_cat_flip = _safe_float(cfg.get("max_intervention_flip_rate_when_base_correct"))
+            if max_cat_flip is not None:
+                lines.append(f"  - max_intervention_flip_rate_when_base_correct: {max_cat_flip}")
     lines.append("")
     lines.append("## Checks")
     lines.append("")
