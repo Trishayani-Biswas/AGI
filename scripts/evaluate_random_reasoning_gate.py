@@ -4,7 +4,20 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import sys
 from typing import Dict, List, Tuple
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from agi_sim.evidence_stats import (
+    cohens_h,
+    conservative_delta_ci_from_component_cis,
+    wilson_interval,
+)
 
 
 def _utc_now() -> str:
@@ -12,7 +25,7 @@ def _utc_now() -> str:
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return ROOT
 
 
 def _safe_float(value: object) -> float | None:
@@ -85,20 +98,43 @@ def _category_intervention_stats(summary: Dict[str, object]) -> Dict[str, Dict[s
     out: Dict[str, Dict[str, float | int | None]] = {}
     for category, bucket in counts.items():
         support = int(bucket["base_correct_and_intervention_tested"])
+        success = int(bucket["intervention_correct_given_base_correct"])
+        flips = int(bucket["flip_given_base_correct"])
         if support > 0:
-            acc = float(bucket["intervention_correct_given_base_correct"]) / float(support)
-            flip = float(bucket["flip_given_base_correct"]) / float(support)
+            acc = float(success) / float(support)
+            flip = float(flips) / float(support)
+            acc_ci_low, acc_ci_high = wilson_interval(success, support)
+            flip_ci_low, flip_ci_high = wilson_interval(flips, support)
         else:
             acc = None
             flip = None
+            acc_ci_low, acc_ci_high = (None, None)
+            flip_ci_low, flip_ci_high = (None, None)
 
         out[category] = {
             "rows": int(bucket["rows"]),
             "base_correct_and_intervention_tested": support,
+            "intervention_correct_given_base_correct": success,
+            "flip_given_base_correct": flips,
             "intervention_accuracy_when_base_correct": acc,
+            "intervention_accuracy_when_base_correct_ci_low": acc_ci_low,
+            "intervention_accuracy_when_base_correct_ci_high": acc_ci_high,
             "intervention_flip_rate_when_base_correct": flip,
+            "intervention_flip_rate_when_base_correct_ci_low": flip_ci_low,
+            "intervention_flip_rate_when_base_correct_ci_high": flip_ci_high,
         }
     return out
+
+
+def _metric_evidence(summary: Dict[str, object], key: str) -> Dict[str, object]:
+    aggregate = summary.get("aggregate")
+    if not isinstance(aggregate, dict):
+        return {}
+    evidence = aggregate.get("hypothesis_evidence")
+    if not isinstance(evidence, dict):
+        return {}
+    metric = evidence.get(key)
+    return metric if isinstance(metric, dict) else {}
 
 
 def _load_gate_config(path: Path) -> Dict[str, object]:
@@ -168,6 +204,9 @@ def main() -> None:
     category_thresholds_obj = gate_payload.get("category_thresholds")
     if not isinstance(category_thresholds_obj, dict):
         category_thresholds_obj = {}
+    evidence_thresholds_obj = gate_payload.get("evidence_thresholds")
+    if not isinstance(evidence_thresholds_obj, dict):
+        evidence_thresholds_obj = {}
 
     candidate_summary = _load_json_dict(candidate_summary_path)
     if candidate_summary is None:
@@ -219,6 +258,28 @@ def main() -> None:
     if max_pattern_risk_delta is None:
         max_pattern_risk_delta = 1.0
 
+    min_intervention_delta_ci_low = _safe_float(
+        evidence_thresholds_obj.get("min_intervention_delta_vs_base_ci_low")
+    )
+    min_intervention_acc_base_correct_ci_low = _safe_float(
+        evidence_thresholds_obj.get("min_intervention_accuracy_when_base_correct_ci_low")
+    )
+    max_anchor_vulnerability_ci_high = _safe_float(
+        evidence_thresholds_obj.get("max_anchor_vulnerability_rate_ci_high")
+    )
+    max_intervention_flip_ci_high = _safe_float(
+        evidence_thresholds_obj.get("max_intervention_flip_rate_when_base_correct_ci_high")
+    )
+    min_intervention_effect_size_h = _safe_float(
+        evidence_thresholds_obj.get("min_intervention_effect_size_h_vs_base")
+    )
+    min_base_delta_vs_baseline_ci_low = _safe_float(
+        evidence_thresholds_obj.get("min_base_accuracy_delta_vs_baseline_ci_low")
+    )
+    min_intervention_delta_vs_baseline_ci_low = _safe_float(
+        evidence_thresholds_obj.get("min_intervention_accuracy_delta_vs_baseline_ci_low")
+    )
+
     candidate_paired_success = _agg_metric(candidate_summary, "paired_success_rate")
     candidate_base_acc = _agg_metric(candidate_summary, "base_accuracy_scored")
     candidate_para_acc = _agg_metric(candidate_summary, "paraphrase_accuracy_scored")
@@ -240,6 +301,17 @@ def main() -> None:
     candidate_conf_correct = _agg_metric(candidate_summary, "mean_confidence_when_correct")
     candidate_conf_wrong = _agg_metric(candidate_summary, "mean_confidence_when_wrong")
     candidate_category_stats = _category_intervention_stats(candidate_summary)
+    candidate_intervention_delta_evidence = _metric_evidence(candidate_summary, "intervention_delta_vs_base")
+    candidate_intervention_given_base_correct_evidence = _metric_evidence(
+        candidate_summary,
+        "intervention_accuracy_when_base_correct",
+    )
+    candidate_anchor_vulnerability_evidence = _metric_evidence(
+        candidate_summary,
+        "intervention_flip_rate_when_base_correct",
+    )
+    candidate_base_accuracy_evidence = _metric_evidence(candidate_summary, "base_accuracy")
+    candidate_intervention_accuracy_evidence = _metric_evidence(candidate_summary, "intervention_accuracy")
 
     conf_gap: float | None = None
     if candidate_conf_correct is not None and candidate_conf_wrong is not None:
@@ -347,6 +419,76 @@ def main() -> None:
         )
     )
 
+    if min_intervention_delta_ci_low is not None:
+        delta_ci_low = _safe_float(candidate_intervention_delta_evidence.get("ci_low"))
+        delta_ci_low_pass = delta_ci_low is not None and delta_ci_low >= min_intervention_delta_ci_low
+        checks.append(
+            (
+                "Intervention delta vs base CI lower bound meets threshold",
+                delta_ci_low_pass,
+                f"candidate_ci_low={_fmt(delta_ci_low)} required>={_fmt(min_intervention_delta_ci_low)}",
+            )
+        )
+
+    if min_intervention_acc_base_correct_ci_low is not None:
+        acc_ci_low = _safe_float(candidate_intervention_given_base_correct_evidence.get("ci_low"))
+        acc_ci_low_pass = (
+            acc_ci_low is not None and acc_ci_low >= min_intervention_acc_base_correct_ci_low
+        )
+        checks.append(
+            (
+                "Intervention accuracy on base-correct items CI lower bound meets threshold",
+                acc_ci_low_pass,
+                (
+                    f"candidate_ci_low={_fmt(acc_ci_low)} "
+                    f"required>={_fmt(min_intervention_acc_base_correct_ci_low)}"
+                ),
+            )
+        )
+
+    if max_anchor_vulnerability_ci_high is not None:
+        anchor_ci_high = _safe_float(candidate_anchor_vulnerability_evidence.get("ci_high"))
+        anchor_ci_high_pass = (
+            anchor_ci_high is not None and anchor_ci_high <= max_anchor_vulnerability_ci_high
+        )
+        checks.append(
+            (
+                "Anchor vulnerability CI upper bound is below max",
+                anchor_ci_high_pass,
+                (
+                    f"candidate_ci_high={_fmt(anchor_ci_high)} "
+                    f"allowed<={_fmt(max_anchor_vulnerability_ci_high)}"
+                ),
+            )
+        )
+
+    if max_intervention_flip_ci_high is not None:
+        flip_ci_high = _safe_float(candidate_anchor_vulnerability_evidence.get("ci_high"))
+        flip_ci_high_pass = (
+            flip_ci_high is not None and flip_ci_high <= max_intervention_flip_ci_high
+        )
+        checks.append(
+            (
+                "Intervention flip rate on base-correct items CI upper bound is below max",
+                flip_ci_high_pass,
+                (
+                    f"candidate_ci_high={_fmt(flip_ci_high)} "
+                    f"allowed<={_fmt(max_intervention_flip_ci_high)}"
+                ),
+            )
+        )
+
+    if min_intervention_effect_size_h is not None:
+        effect_h = _safe_float(candidate_intervention_delta_evidence.get("effect_size_h"))
+        effect_h_pass = effect_h is not None and effect_h >= min_intervention_effect_size_h
+        checks.append(
+            (
+                "Intervention effect size (Cohen h) vs base meets threshold",
+                effect_h_pass,
+                f"candidate={_fmt(effect_h)} required>={_fmt(min_intervention_effect_size_h)}",
+            )
+        )
+
     repair_acc_pass = candidate_repair_acc is not None and candidate_repair_acc >= min_repair_acc
     checks.append(
         (
@@ -398,6 +540,11 @@ def main() -> None:
         baseline_intervention_acc = _agg_metric(baseline_summary, "intervention_accuracy_scored")
         baseline_consistency = _agg_metric(baseline_summary, "consistency_rate_scored")
         baseline_pattern_risk = _agg_metric(baseline_summary, "pattern_risk_index")
+        baseline_base_accuracy_evidence = _metric_evidence(baseline_summary, "base_accuracy")
+        baseline_intervention_accuracy_evidence = _metric_evidence(
+            baseline_summary,
+            "intervention_accuracy",
+        )
 
         base_delta_pass = (
             baseline_base_acc is not None
@@ -479,6 +626,74 @@ def main() -> None:
             )
         )
 
+        if min_base_delta_vs_baseline_ci_low is not None:
+            base_delta_ci_low, base_delta_ci_high = conservative_delta_ci_from_component_cis(
+                _safe_float(candidate_base_accuracy_evidence.get("ci_low")),
+                _safe_float(candidate_base_accuracy_evidence.get("ci_high")),
+                _safe_float(baseline_base_accuracy_evidence.get("ci_low")),
+                _safe_float(baseline_base_accuracy_evidence.get("ci_high")),
+            )
+            base_delta_ci_pass = (
+                base_delta_ci_low is not None
+                and base_delta_ci_low >= min_base_delta_vs_baseline_ci_low
+            )
+            checks.append(
+                (
+                    "Base accuracy delta vs baseline CI lower bound meets threshold",
+                    base_delta_ci_pass,
+                    (
+                        f"candidate_ci_delta_low={_fmt(base_delta_ci_low)} "
+                        f"required>={_fmt(min_base_delta_vs_baseline_ci_low)} "
+                        f"candidate_ci_high={_fmt(base_delta_ci_high)}"
+                    ),
+                )
+            )
+
+        if min_intervention_delta_vs_baseline_ci_low is not None:
+            intervention_delta_ci_low_vs_baseline, intervention_delta_ci_high_vs_baseline = (
+                conservative_delta_ci_from_component_cis(
+                    _safe_float(candidate_intervention_accuracy_evidence.get("ci_low")),
+                    _safe_float(candidate_intervention_accuracy_evidence.get("ci_high")),
+                    _safe_float(baseline_intervention_accuracy_evidence.get("ci_low")),
+                    _safe_float(baseline_intervention_accuracy_evidence.get("ci_high")),
+                )
+            )
+            intervention_delta_ci_vs_baseline_pass = (
+                intervention_delta_ci_low_vs_baseline is not None
+                and intervention_delta_ci_low_vs_baseline
+                >= min_intervention_delta_vs_baseline_ci_low
+            )
+            checks.append(
+                (
+                    "Intervention accuracy delta vs baseline CI lower bound meets threshold",
+                    intervention_delta_ci_vs_baseline_pass,
+                    (
+                        f"candidate_ci_delta_low={_fmt(intervention_delta_ci_low_vs_baseline)} "
+                        f"required>={_fmt(min_intervention_delta_vs_baseline_ci_low)} "
+                        f"candidate_ci_high={_fmt(intervention_delta_ci_high_vs_baseline)}"
+                    ),
+                )
+            )
+
+        baseline_intervention_rate = _safe_float(
+            baseline_intervention_accuracy_evidence.get("point_estimate")
+        )
+        candidate_intervention_rate = _safe_float(
+            candidate_intervention_accuracy_evidence.get("point_estimate")
+        )
+        if baseline_intervention_rate is not None and candidate_intervention_rate is not None:
+            intervention_h_vs_baseline = cohens_h(
+                candidate_intervention_rate,
+                baseline_intervention_rate,
+            )
+            checks.append(
+                (
+                    "Intervention effect size (Cohen h) vs baseline is non-negative",
+                    intervention_h_vs_baseline >= 0.0,
+                    f"candidate={_fmt(intervention_h_vs_baseline)} required>=0.0000",
+                )
+            )
+
     for category in sorted(category_thresholds_obj.keys()):
         cfg = category_thresholds_obj.get(category)
         if not isinstance(cfg, dict):
@@ -514,6 +729,26 @@ def main() -> None:
                 )
             )
 
+        min_cat_acc_ci_low = _safe_float(cfg.get("min_intervention_accuracy_when_base_correct_ci_low"))
+        if min_cat_acc_ci_low is not None:
+            cat_acc_ci_low_obj = cat_stats.get("intervention_accuracy_when_base_correct_ci_low")
+            cat_acc_ci_low = (
+                float(cat_acc_ci_low_obj) if isinstance(cat_acc_ci_low_obj, (int, float)) else None
+            )
+            cat_acc_ci_low_pass = (
+                support_pass and cat_acc_ci_low is not None and cat_acc_ci_low >= min_cat_acc_ci_low
+            )
+            checks.append(
+                (
+                    f"Category {category} intervention accuracy CI lower bound meets threshold",
+                    cat_acc_ci_low_pass,
+                    (
+                        f"candidate_ci_low={_fmt(cat_acc_ci_low)} "
+                        f"required>={_fmt(min_cat_acc_ci_low)} support={support}"
+                    ),
+                )
+            )
+
         max_cat_flip = _safe_float(cfg.get("max_intervention_flip_rate_when_base_correct"))
         if max_cat_flip is not None:
             cat_flip_obj = cat_stats.get("intervention_flip_rate_when_base_correct")
@@ -524,6 +759,28 @@ def main() -> None:
                     f"Category {category} intervention flip rate on base-correct items is within limit",
                     cat_flip_pass,
                     f"candidate={_fmt(cat_flip)} allowed<={_fmt(max_cat_flip)} support={support}",
+                )
+            )
+
+        max_cat_flip_ci_high = _safe_float(cfg.get("max_intervention_flip_rate_when_base_correct_ci_high"))
+        if max_cat_flip_ci_high is not None:
+            cat_flip_ci_high_obj = cat_stats.get("intervention_flip_rate_when_base_correct_ci_high")
+            cat_flip_ci_high = (
+                float(cat_flip_ci_high_obj) if isinstance(cat_flip_ci_high_obj, (int, float)) else None
+            )
+            cat_flip_ci_high_pass = (
+                support_pass
+                and cat_flip_ci_high is not None
+                and cat_flip_ci_high <= max_cat_flip_ci_high
+            )
+            checks.append(
+                (
+                    f"Category {category} intervention flip-rate CI upper bound is within limit",
+                    cat_flip_ci_high_pass,
+                    (
+                        f"candidate_ci_high={_fmt(cat_flip_ci_high)} "
+                        f"allowed<={_fmt(max_cat_flip_ci_high)} support={support}"
+                    ),
                 )
             )
 
@@ -566,6 +823,13 @@ def main() -> None:
     lines.append(f"- min_consistency_delta_vs_baseline: {min_consistency_delta}")
     lines.append(f"- max_pattern_risk_delta_vs_baseline: {max_pattern_risk_delta}")
 
+    if evidence_thresholds_obj:
+        lines.append("")
+        lines.append("## Evidence Thresholds")
+        lines.append("")
+        for key in sorted(evidence_thresholds_obj.keys()):
+            lines.append(f"- {key}: {evidence_thresholds_obj[key]}")
+
     if category_thresholds_obj:
         lines.append("")
         lines.append("## Category Thresholds")
@@ -581,9 +845,15 @@ def main() -> None:
             min_cat_acc = _safe_float(cfg.get("min_intervention_accuracy_when_base_correct"))
             if min_cat_acc is not None:
                 lines.append(f"  - min_intervention_accuracy_when_base_correct: {min_cat_acc}")
+            min_cat_acc_ci_low = _safe_float(cfg.get("min_intervention_accuracy_when_base_correct_ci_low"))
+            if min_cat_acc_ci_low is not None:
+                lines.append(f"  - min_intervention_accuracy_when_base_correct_ci_low: {min_cat_acc_ci_low}")
             max_cat_flip = _safe_float(cfg.get("max_intervention_flip_rate_when_base_correct"))
             if max_cat_flip is not None:
                 lines.append(f"  - max_intervention_flip_rate_when_base_correct: {max_cat_flip}")
+            max_cat_flip_ci_high = _safe_float(cfg.get("max_intervention_flip_rate_when_base_correct_ci_high"))
+            if max_cat_flip_ci_high is not None:
+                lines.append(f"  - max_intervention_flip_rate_when_base_correct_ci_high: {max_cat_flip_ci_high}")
     lines.append("")
     lines.append("## Checks")
     lines.append("")

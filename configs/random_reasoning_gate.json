@@ -20,11 +20,22 @@
     "min_consistency_delta_vs_baseline": 0.0,
     "max_pattern_risk_delta_vs_baseline": 0.0
   },
+  "evidence_thresholds": {
+    "min_intervention_delta_vs_base_ci_low": -0.05,
+    "min_intervention_accuracy_when_base_correct_ci_low": 0.55,
+    "max_anchor_vulnerability_rate_ci_high": 0.45,
+    "max_intervention_flip_rate_when_base_correct_ci_high": 0.45,
+    "min_intervention_effect_size_h_vs_base": -0.12,
+    "min_base_accuracy_delta_vs_baseline_ci_low": -0.08,
+    "min_intervention_accuracy_delta_vs_baseline_ci_low": -0.08
+  },
   "category_thresholds": {
     "statistics": {
       "min_support": 1,
       "min_intervention_accuracy_when_base_correct": 1.0,
-      "max_intervention_flip_rate_when_base_correct": 0.0
+      "max_intervention_flip_rate_when_base_correct": 0.0,
+      "min_intervention_accuracy_when_base_correct_ci_low": 0.15,
+      "max_intervention_flip_rate_when_base_correct_ci_high": 0.85
     }
   }
 }

@@ -17,6 +17,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from agi_sim.config import SimulationConfig
+from agi_sim.evidence_stats import bootstrap_mean_ci, cohens_h, proportion_summary
 
 
 def _utc_now() -> str:
@@ -363,10 +364,21 @@ def _mean(values: Iterable[float]) -> float:
     return float(statistics.mean(prepared))
 
 
+def _fmt_ci(ci_low: object, ci_high: object, digits: int = 3) -> str:
+    low = _safe_float(ci_low)
+    high = _safe_float(ci_high)
+    if low is None or high is None:
+        return "n/a"
+    return f"[{low:.{digits}f}, {high:.{digits}f}]"
+
+
 def _build_report(payload: Dict[str, object]) -> str:
     aggregate = payload.get("aggregate")
     if not isinstance(aggregate, dict):
         aggregate = {}
+    evidence = aggregate.get("hypothesis_evidence")
+    if not isinstance(evidence, dict):
+        evidence = {}
 
     rows = payload.get("results")
     if not isinstance(rows, list):
@@ -426,6 +438,48 @@ def _build_report(payload: Dict[str, object]) -> str:
     else:
         lines.append("- pattern_risk_index: n/a (insufficient successful responses)")
     lines.append("")
+
+    if evidence:
+        lines.append("## Hypothesis Evidence")
+        lines.append("")
+        evidence_rows = [
+            ("base_accuracy", "Base accuracy"),
+            ("paraphrase_accuracy", "Paraphrase accuracy"),
+            ("intervention_accuracy", "Intervention accuracy"),
+            (
+                "intervention_accuracy_when_base_correct",
+                "Intervention accuracy (base-correct subset)",
+            ),
+            (
+                "intervention_flip_rate_when_base_correct",
+                "Intervention flip rate (base-correct subset)",
+            ),
+        ]
+        for key, label in evidence_rows:
+            metric = evidence.get(key)
+            if not isinstance(metric, dict):
+                continue
+            point_estimate = _safe_float(metric.get("point_estimate"))
+            point_text = f"{point_estimate:.3f}" if point_estimate is not None else "n/a"
+            lines.append(
+                f"- {label}: p={point_text} "
+                f"95% CI={_fmt_ci(metric.get('ci_low'), metric.get('ci_high'))} "
+                f"n={int(metric.get('n', 0))}"
+            )
+
+        delta_metric = evidence.get("intervention_delta_vs_base")
+        if isinstance(delta_metric, dict):
+            delta_point = _safe_float(delta_metric.get("point_estimate"))
+            delta_text = f"{delta_point:+.3f}" if delta_point is not None else "n/a"
+            effect_h = _safe_float(delta_metric.get("effect_size_h"))
+            effect_text = f"{effect_h:+.3f}" if effect_h is not None else "n/a"
+            lines.append(
+                "- Intervention delta vs base: "
+                f"delta={delta_text} "
+                f"95% CI={_fmt_ci(delta_metric.get('ci_low'), delta_metric.get('ci_high'))} "
+                f"effect_size_h={effect_text} n_paired={int(delta_metric.get('n_paired', 0))}"
+            )
+        lines.append("")
 
     lines.append("## Per Question")
     lines.append("")
@@ -543,6 +597,9 @@ def main() -> None:
     intervention_scores: List[float] = []
     intervention_given_base_correct_scores: List[float] = []
     intervention_given_base_wrong_scores: List[float] = []
+    intervention_paired_base_scores: List[float] = []
+    intervention_paired_scores: List[float] = []
+    intervention_delta_samples: List[float] = []
     consistency_scores: List[float] = []
     base_request_ok_values: List[float] = []
     paraphrase_request_ok_values: List[float] = []
@@ -793,6 +850,9 @@ def main() -> None:
             }
 
         if base_request_ok and intervention_request_ok:
+            intervention_paired_base_scores.append(1.0 if base_ok else 0.0)
+            intervention_paired_scores.append(1.0 if intervention_ok else 0.0)
+            intervention_delta_samples.append((1.0 if intervention_ok else 0.0) - (1.0 if base_ok else 0.0))
             if base_ok:
                 anchor_vulnerability_values.append(0.0 if intervention_ok else 1.0)
                 intervention_given_base_correct_scores.append(1.0 if intervention_ok else 0.0)
@@ -921,6 +981,39 @@ def main() -> None:
     if intervention_given_base_wrong_scores:
         intervention_accuracy_when_base_wrong = _mean(intervention_given_base_wrong_scores)
 
+    base_evidence = proportion_summary(base_scores)
+    paraphrase_evidence = proportion_summary(paraphrase_scores)
+    intervention_evidence = proportion_summary(intervention_scores)
+    intervention_given_base_correct_evidence = proportion_summary(intervention_given_base_correct_scores)
+    intervention_flip_given_base_correct_evidence = proportion_summary(anchor_vulnerability_values)
+    intervention_delta_ci_low, intervention_delta_ci_high = bootstrap_mean_ci(
+        intervention_delta_samples,
+        seed=int(args.seed) + 101,
+    )
+
+    intervention_delta_effect_h: float | None = None
+    paired_base_rate = _safe_float(proportion_summary(intervention_paired_base_scores).get("point_estimate"))
+    paired_intervention_rate = _safe_float(
+        proportion_summary(intervention_paired_scores).get("point_estimate")
+    )
+    if paired_base_rate is not None and paired_intervention_rate is not None:
+        intervention_delta_effect_h = cohens_h(paired_intervention_rate, paired_base_rate)
+
+    hypothesis_evidence = {
+        "base_accuracy": base_evidence,
+        "paraphrase_accuracy": paraphrase_evidence,
+        "intervention_accuracy": intervention_evidence,
+        "intervention_accuracy_when_base_correct": intervention_given_base_correct_evidence,
+        "intervention_flip_rate_when_base_correct": intervention_flip_given_base_correct_evidence,
+        "intervention_delta_vs_base": {
+            "n_paired": len(intervention_delta_samples),
+            "point_estimate": intervention_delta_vs_base,
+            "ci_low": intervention_delta_ci_low,
+            "ci_high": intervention_delta_ci_high,
+            "effect_size_h": intervention_delta_effect_h,
+        },
+    }
+
     aggregate = {
         "questions_evaluated": len(results),
         "base_requests_success_rate": round(_mean(base_request_ok_values), 6),
@@ -961,6 +1054,7 @@ def main() -> None:
         "mean_confidence_when_correct": round(_mean(confidence_correct), 6),
         "mean_confidence_when_wrong": round(_mean(confidence_wrong), 6),
         "pattern_risk_index": round(pattern_risk_index, 6) if pattern_risk_index is not None else None,
+        "hypothesis_evidence": hypothesis_evidence,
     }
 
     out_payload = {

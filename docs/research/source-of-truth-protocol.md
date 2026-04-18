@@ -19,6 +19,11 @@ Run summaries and reports under `outputs/`, gate reports and promotion decisions
 `README.md`, `ROADMAP.md`, and wiki pages are explanatory context.
 If docs conflict with code or artifacts, code+artifacts win.
 
+## Direction Anchor
+
+For medium- and long-horizon planning, use `docs/research/openclaw_local_evolution_6m_execution_plan.md` as the strategic reference.
+Before starting major implementation, map intended work to the plan's month/week milestones.
+
 ## Minimum Evidence For Any Direction Claim
 
 A claim is valid only when all are present:

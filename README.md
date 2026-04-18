@@ -31,6 +31,7 @@ Use this short checklist before closing any major implementation:
 - Medium source review from full user-provided text (with implementation mapping): `docs/research/medium-how-to-build-an-agi-review.md`
 - Independent-thinking experimental protocol and promotion criteria: `docs/research/independent-thinking-scientific-plan.md`
 - Ground-truth protocol (code + artifact authority order): `docs/research/source-of-truth-protocol.md`
+- OpenClaw-level 6-month execution roadmap (direction anchor): `docs/research/openclaw_local_evolution_6m_execution_plan.md`
 
 Quick status snapshot from code+artifacts (without README assumptions):
 
@@ -792,6 +793,8 @@ Notes:
 - runner now includes a misleading-anchor intervention pass and causal robustness metrics (`intervention_accuracy_scored`, `intervention_delta_vs_base`, `anchor_vulnerability_rate`)
 - runner now reports base-correct intervention robustness metrics (`intervention_accuracy_when_base_correct`, `intervention_flip_rate_when_base_correct`) so anchor resistance is measured on eligible items directly
 - strict reasoning gate defaults are tightened for intervention robustness (`min_intervention_accuracy_when_base_correct=0.9`, `max_intervention_flip_rate_when_base_correct=0.1`, `max_anchor_vulnerability_rate=0.1`)
+- benchmark summaries now include `aggregate.hypothesis_evidence` with Wilson confidence intervals for key intervention/base metrics plus intervention-vs-base effect size (`Cohen h`)
+- gate policy now supports `evidence_thresholds` in `configs/random_reasoning_gate.json` and can enforce CI-bound checks globally and per-category (`min_*_ci_low`, `max_*_ci_high`)
 - runner now supports token-capped decoding (`--max-tokens`) and chat `think=false` mode for better reasoning-model compatibility
 
 ### Independent-thinking 5-cycle loop (3 questions per run)

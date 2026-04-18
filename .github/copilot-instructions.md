@@ -11,3 +11,7 @@ These defaults apply to every response in this workspace.
 - Keep changes minimal and focused.
 - Do not update README for trivial or no-op progress.
 - If a result is mixed, explain both gains and regressions clearly.
+
+## Direction Anchor (Mandatory)
+
+Before major planning or implementation, consult `docs/research/openclaw_local_evolution_6m_execution_plan.md` and align actions to its month/week deliverables.
