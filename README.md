@@ -1039,6 +1039,27 @@ What the loop guarantees:
 - fine-tune dataset quality checks before any tuning run
 - reproducible command logs per seed in `outputs/model_evals/<candidate_id>/seed_<seed>/command.log`
 
+Capability expansion audit (model/tool freedom operationalized):
+
+```bash
+.venv/bin/python scripts/capability_expansion_audit.py --write
+```
+
+Optional auto-pull of missing local models:
+
+```bash
+.venv/bin/python scripts/capability_expansion_audit.py --write --pull-missing
+```
+
+This checks local model inventory against project candidates plus expansion targets and writes:
+
+- `outputs/capability_expansion/latest_audit.json`
+- `outputs/capability_expansion/latest_audit.md`
+
+Expansion target config:
+
+- `configs/capability_expansion_targets.json`
+
 ### Build persistent AGI wiki memory (Karpathy LLM Wiki pattern)
 
 Authoritative reference idea file:

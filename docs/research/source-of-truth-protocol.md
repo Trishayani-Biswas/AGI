@@ -85,3 +85,7 @@ When a benchmark is running, observers should be able to see:
 ## Drift Guardrail
 
 Before each major decision, regenerate truth from artifacts first, then update docs.
+
+## Capability Expansion Guardrail
+
+When project goals require stronger tooling, better models, or external architectural references, default to capability expansion instead of self-imposed limits. Document what was added, why it was needed, and what measurable gain it is expected to deliver.

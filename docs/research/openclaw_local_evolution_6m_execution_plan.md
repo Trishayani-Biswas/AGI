@@ -57,6 +57,12 @@ Track these monthly and at release-candidate checkpoints:
 - Hot-loop optimization and batched simulation updates.
 - Multi-device campaign orchestration via artifact exchange.
 
+### 5) Model And Tool Expansion Subsystem
+
+- Maintain an evolving local-model portfolio for proposer/critic/evaluator roles.
+- Use external model baselines selectively to detect local blind spots.
+- Incorporate external open-source modules when they accelerate measurable milestones.
+
 ## Month-By-Month Roadmap
 
 ## Month 1: Entropy Foundation + Telemetry Contracts
@@ -210,6 +216,7 @@ A stage is promoted only if all checks pass:
 - cross-device divergence non-trivial in Wild mode
 - observability completeness and artifact integrity pass
 - performance targets met for declared fidelity tiers
+- capability-expansion decisions are documented with observed benefit or rollback plan
 
 ## Artifact Contract
 
