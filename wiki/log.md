@@ -1477,3 +1477,12 @@ Append-only timeline of wiki ingests and major updates.
 - robustness_mean: 41651.697
 - winner_fitness: 9643.835
 - curriculum_enabled: no
+
+## [2026-04-15] ingest | h2_shock_0.020_29094
+
+- page: [runs/h2_shock_0.020_29094.md](runs/h2_shock_0.020_29094.md)
+- source: [../outputs/h2_shock_0.020_29094/summary.json](../outputs/h2_shock_0.020_29094/summary.json)
+- full_generation_run: yes
+- robustness_mean: 40517.322
+- winner_fitness: 9811.902
+- curriculum_enabled: no
