@@ -30,6 +30,18 @@ Use this short checklist before closing any major implementation:
 
 - Medium source review from full user-provided text (with implementation mapping): `docs/research/medium-how-to-build-an-agi-review.md`
 - Independent-thinking experimental protocol and promotion criteria: `docs/research/independent-thinking-scientific-plan.md`
+- Ground-truth protocol (code + artifact authority order): `docs/research/source-of-truth-protocol.md`
+
+Quick status snapshot from code+artifacts (without README assumptions):
+
+```bash
+.venv/bin/python scripts/research_status_snapshot.py --write
+```
+
+Outputs:
+
+- `outputs/research_status/latest_status.json`
+- `outputs/research_status/latest_status.md`
 
 ---
 
